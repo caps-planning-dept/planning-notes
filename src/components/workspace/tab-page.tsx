@@ -1,0 +1,93 @@
+"use client";
+
+import { Palette, Trash2 } from "lucide-react";
+import { type CSSProperties, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { Workspace } from "@/hooks/use-workspace";
+import { readableTextOn } from "@/lib/color";
+import { DEFAULT_TAB_COLOR, resolveTabColor, type Tab } from "@/lib/workspace";
+import { CalendarView } from "./calendar-view";
+import { ColorPicker } from "./color-picker";
+import { NoteEditor } from "./note-editor";
+import { TabStrip } from "./tab-strip";
+
+type TabPageProps = { tab: Tab; workspace: Workspace; onNewTab: (parentId: string) => void };
+
+export function TabPage({ tab, workspace, onNewTab }: TabPageProps) {
+  const [colorOpen, setColorOpen] = useState(false);
+  const color = resolveTabColor(workspace.tabs, tab.id);
+  const onColor = readableTextOn(color);
+  const tabStyle = { "--tab": color, "--on-tab": onColor } as CSSProperties;
+  const inherited = tab.parentId ? resolveTabColor(workspace.tabs, tab.parentId) : DEFAULT_TAB_COLOR;
+
+  return (
+    <div style={tabStyle} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <header className="chamfer-lg m-3 flex shrink-0 flex-col gap-4 bg-(--tab) px-6 py-5 text-(--on-tab) md:m-4 md:px-10 md:py-7">
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span>{tab.template === "calendar" ? "달력" : "일반 노트"}</span>
+          <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="탭 색상 바꾸기"
+              className="text-inherit hover:bg-white/20 hover:text-inherit"
+              onClick={() => setColorOpen(true)}
+            >
+              <Palette />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="탭을 휴지통으로 옮기기"
+              className="text-inherit hover:bg-white/20 hover:text-inherit"
+              onClick={() => workspace.trashTab(tab.id)}
+            >
+              <Trash2 />
+            </Button>
+          </div>
+        </div>
+        <input
+          aria-label="탭 이름"
+          value={tab.title}
+          placeholder="제목 없음"
+          className="w-full bg-transparent font-display text-4xl leading-tight outline-none placeholder:text-current placeholder:opacity-60 md:text-5xl"
+          onChange={(event) => workspace.updateTab(tab.id, { title: event.target.value })}
+        />
+      </header>
+
+      <TabStrip tab={tab} workspace={workspace} onNewTab={onNewTab} />
+
+      {tab.template === "note" ? (
+        <NoteEditor
+          content={workspace.notes[tab.id]}
+          onChange={(content) => workspace.saveNote(tab.id, content)}
+        />
+      ) : (
+        <CalendarView tab={tab} color={color} workspace={workspace} />
+      )}
+
+      <Dialog open={colorOpen} onOpenChange={setColorOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>탭 색상</DialogTitle>
+            <DialogDescription>모든 멤버에게 같은 색으로 보입니다.</DialogDescription>
+          </DialogHeader>
+          <ColorPicker
+            id="tab-color"
+            value={tab.color}
+            fallback={inherited}
+            fallbackLabel={tab.parentId ? "상위 탭 색 따르기" : undefined}
+            onChange={(next) => workspace.updateTab(tab.id, { color: next })}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

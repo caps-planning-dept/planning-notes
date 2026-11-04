@@ -1,0 +1,91 @@
+import { describe, expect, it } from "vitest";
+import {
+  moveToTrash,
+  purgeExpired,
+  resolveTabColor,
+  restoreFromTrash,
+  tabFamily,
+  trashedRoots,
+  type Tab,
+  visibleChildren,
+} from "./workspace";
+
+const DAY = 24 * 60 * 60 * 1000;
+
+function tab(id: string, parentId: string | null, extra: Partial<Tab> = {}): Tab {
+  return { id, parentId, title: id, template: "note", color: null, deletedAt: null, ...extra };
+}
+
+describe("탭 색상", () => {
+  it("색을 정하지 않은 하위 탭은 가장 가까운 상위 탭의 색을 따른다", () => {
+    const tabs = [tab("a", null, { color: "#ff0000" }), tab("b", "a"), tab("c", "b")];
+    expect(resolveTabColor(tabs, "c")).toBe("#ff0000");
+  });
+
+  it("자기 색이 있으면 상위 탭보다 우선한다", () => {
+    const tabs = [tab("a", null, { color: "#ff0000" }), tab("b", "a", { color: "#00ff00" })];
+    expect(resolveTabColor(tabs, "b")).toBe("#00ff00");
+  });
+
+  it("어디에도 색이 없으면 기본 무채색을 쓴다", () => {
+    expect(resolveTabColor([tab("a", null)], "a")).toBe("#2b2a27");
+  });
+});
+
+describe("페이지 안 탭 묶음", () => {
+  const ids = (tabs: Tab[], id: string) => tabFamily(tabs, id).members.map((t) => t.id);
+
+  it("하위 탭이 없는 최상위 탭은 자기 자신만 보여 준다", () => {
+    expect(ids([tab("a", null)], "a")).toEqual(["a"]);
+  });
+
+  it("상위 탭과 하위 탭 어디에서 보아도 같은 묶음이 보인다", () => {
+    const tabs = [tab("a", null), tab("b", "a"), tab("c", "a"), tab("x", null)];
+    expect(ids(tabs, "a")).toEqual(["a", "b", "c"]);
+    expect(ids(tabs, "c")).toEqual(["a", "b", "c"]);
+  });
+
+  it("자기 하위 탭이 있는 탭은 자신을 기준으로 묶는다", () => {
+    const tabs = [tab("a", null), tab("b", "a"), tab("c", "b")];
+    expect(ids(tabs, "b")).toEqual(["b", "c"]);
+  });
+
+  it("휴지통에 있는 탭은 묶음에서 뺀다", () => {
+    const tabs = [tab("a", null), tab("b", "a"), tab("c", "a", { deletedAt: 1 })];
+    expect(ids(tabs, "a")).toEqual(["a", "b"]);
+  });
+});
+
+describe("휴지통", () => {
+  it("상위 탭을 지우면 하위 탭도 목록에서 사라지고 휴지통에는 상위 탭만 보인다", () => {
+    const tabs = moveToTrash([tab("a", null), tab("b", "a"), tab("c", null)], "a", 1000);
+    expect(visibleChildren(tabs, null).map((t) => t.id)).toEqual(["c"]);
+    expect(trashedRoots(tabs).map((t) => t.id)).toEqual(["a"]);
+  });
+
+  it("상위 탭을 복구하면 함께 지운 하위 탭도 돌아온다", () => {
+    const trashed = moveToTrash([tab("a", null), tab("b", "a")], "a", 1000);
+    const restored = restoreFromTrash(trashed, "a");
+    expect(restored.every((t) => t.deletedAt === null)).toBe(true);
+  });
+
+  it("먼저 따로 지운 하위 탭은 상위 탭을 복구해도 휴지통에 남는다", () => {
+    let tabs = moveToTrash([tab("a", null), tab("b", "a")], "b", 1000);
+    tabs = moveToTrash(tabs, "a", 2000);
+    tabs = restoreFromTrash(tabs, "a");
+    expect(tabs.find((t) => t.id === "a")?.deletedAt).toBeNull();
+    expect(tabs.find((t) => t.id === "b")?.deletedAt).toBe(1000);
+  });
+
+  it("상위 탭이 휴지통에 있는 하위 탭을 복구하면 최상위로 옮긴다", () => {
+    let tabs = moveToTrash([tab("a", null), tab("b", "a")], "b", 1000);
+    tabs = moveToTrash(tabs, "a", 2000);
+    tabs = restoreFromTrash(tabs, "b");
+    expect(tabs.find((t) => t.id === "b")).toMatchObject({ deletedAt: null, parentId: null });
+  });
+
+  it("삭제 후 30일이 지나면 완전히 지우고, 그 전에는 남긴다", () => {
+    const tabs = [tab("old", null, { deletedAt: 0 }), tab("new", null, { deletedAt: DAY })];
+    expect(purgeExpired(tabs, 30 * DAY).map((t) => t.id)).toEqual(["new"]);
+  });
+});
