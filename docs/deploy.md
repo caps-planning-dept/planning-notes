@@ -8,7 +8,8 @@
 - [x] 회장단의 코드·로고 공개 확인
 - [ ] 공개 전 커밋 기록에 실제 이름과 비밀 값이 없는지 확인
 - [ ] `feature/capture`를 `main`에 합치기
-- [ ] GitHub Organization에 저장소를 만들고 올리기
+- [ ] GitHub Organization `caps-planning-dept` 만들기
+- [ ] Organization에 공개 저장소 `planning-notes`를 만들고 올리기
 
 ## 2. Vercel
 
@@ -27,8 +28,11 @@
 
 - [ ] Liveblocks 운영용 프로젝트를 만들고 `LIVEBLOCKS_SECRET_KEY` 교체
 - [ ] Supabase MCP를 읽기 전용으로 변경
-- [ ] 자동 백업 구현 (회의록 답글 포함)
-- [ ] 개인정보처리방침 페이지 작성
+- [x] 자동 백업 코드 작성 (`scripts/backup.mjs`)
+- [ ] 백업 저장소 설정과 첫 실행 ([backup.md](backup.md))
+- [x] 개인정보처리방침 페이지 초안 작성 (`/privacy`)
+- [ ] 배포일에 맞춰 방침의 시행일 수정
+- [ ] 신청 폼의 동의 방식 재검토 (현재 체크 없이 안내만 표시)
 
 ## 5. 데이터 정리
 

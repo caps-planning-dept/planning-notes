@@ -180,7 +180,11 @@ export function ApplyForm({ token, title, dates, activities }: ApplyFormProps) {
         </div>
 
         <p className="rounded-md bg-secondary p-4 text-sm leading-relaxed">
-          입력한 내용은 캡처 조 편성과 안내에만 쓰며, 지정된 기획부 담당자만 확인합니다. 해당 회차가 끝나면 삭제합니다.
+          입력한 내용은 캡처 조 편성과 안내에만 쓰며, 지정된 기획부 담당자만 확인합니다. 해당 회차 종료 후 1년 이내에
+          삭제합니다.{" "}
+          <a className="underline underline-offset-4" href="/privacy" target="_blank" rel="noreferrer">
+            개인정보처리방침
+          </a>
         </p>
 
         {submitError && <p role="alert" className="text-sm text-destructive">{submitError}</p>}

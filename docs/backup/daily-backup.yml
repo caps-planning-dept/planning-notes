@@ -1,0 +1,56 @@
+# 백업 저장소의 .github/workflows/daily-backup.yml에 복사해 사용한다.
+# 앱 코드는 공개 저장소이므로 이 작업과 결과는 비공개 백업 저장소에서만 실행한다.
+name: Daily backup
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # 한국 시간 매일 오전 3시
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out backups
+        uses: actions/checkout@v4
+        with:
+          path: backup
+
+      - name: Check out app code
+        uses: actions/checkout@v4
+        with:
+          repository: caps-planning-dept/planning-notes
+          ref: main
+          path: app
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+        working-directory: app
+
+      - name: Export data
+        run: node app/scripts/backup.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          LIVEBLOCKS_SECRET_KEY: ${{ secrets.LIVEBLOCKS_SECRET_KEY }}
+          BACKUP_DIR: backup/backups
+
+      # 지난 커밋에 삭제 대상 정보가 남지 않도록 기록 없이 한 커밋으로 덮어쓴다.
+      - name: Save backups
+        working-directory: backup
+        run: |
+          git config user.name "backup-bot"
+          git config user.email "backup-bot@users.noreply.github.com"
+          git checkout --orphan latest
+          git add -A
+          git commit -m "Backup $(date -u +%F)"
+          git branch -M main
+          git push --force origin main

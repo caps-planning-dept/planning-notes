@@ -175,7 +175,7 @@ export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) 
 
           <section className="flex flex-col gap-2 rounded-md border border-destructive/40 p-4">
             <h2 className="font-medium">회차 종료 후 정리</h2>
-            <p className="text-sm text-muted-foreground">신청 폼 안내대로 회차가 끝나면 신청 내용을 지워 주세요.</p>
+            <p className="text-sm text-muted-foreground">신청 폼 안내대로 회차 종료 후 1년 이내에 신청 내용을 지워 주세요.</p>
             <Button variant="destructive" className="w-fit" onClick={() => setConfirming(true)}>
               신청 내용 모두 삭제 ({capture.applications.length}건)
             </Button>

@@ -67,6 +67,9 @@ export function LoginCard({ nextPath, failed }: LoginCardProps) {
             {error}
           </p>
         )}
+        <a className="text-sm text-muted-foreground underline underline-offset-4" href="/privacy">
+          개인정보처리방침
+        </a>
       </div>
     </main>
   );
