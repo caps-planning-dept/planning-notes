@@ -20,7 +20,7 @@
 2. [daily-backup.yml](backup/daily-backup.yml)을 그 저장소의 `.github/workflows/daily-backup.yml`로 복사합니다. 앱 저장소 이름이 다르면 `repository` 값을 고칩니다.
 3. 저장소의 Settings → Secrets and variables → Actions에 값을 등록합니다.
    - `SUPABASE_URL`
-   - `SUPABASE_SECRET_KEY`: DB의 모든 권한을 가진 키이므로 이 저장소에만 넣습니다.
+   - `SUPABASE_SECRET_KEY`: `service_role` 권한의 키입니다. 표 권한은 백업 대상을 읽는 것만 허용했지만([마이그레이션](../supabase/migrations/20261105171648_backup_read_access.sql)), 다른 권한이 있을 수 있으므로 이 저장소에만 넣습니다.
    - `LIVEBLOCKS_SECRET_KEY`: 운영용 키
 4. Actions 탭에서 `Daily backup`을 직접 실행하고 `manifest.json`의 개수를 확인합니다.
 5. 실패 알림을 받도록 GitHub 알림 설정을 확인합니다.

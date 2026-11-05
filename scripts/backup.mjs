@@ -96,7 +96,8 @@ async function main() {
     auth: { persistSession: false },
   });
   const liveblocks = new Liveblocks({ secret: requireEnv("LIVEBLOCKS_SECRET_KEY") });
-  const today = new Date().toISOString().slice(0, 10);
+  // 폴더 이름을 한국 날짜로 쓴다. sv 형식이 YYYY-MM-DD이다.
+  const today = new Date().toLocaleDateString("sv", { timeZone: "Asia/Seoul" });
   const counts = await runBackup({ supabase, liveblocks, dir: requireEnv("BACKUP_DIR"), today });
   // 내용이 아닌 개수만 기록한다.
   console.log(`${today} 백업 완료`, counts);

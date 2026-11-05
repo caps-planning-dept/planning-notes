@@ -16,18 +16,18 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out backups
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: backup
 
       - name: Check out app code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: caps-planning-dept/planning-notes
           ref: main
           path: app
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
 
