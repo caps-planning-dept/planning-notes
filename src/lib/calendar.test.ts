@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { monthCells, splitWeeks, weekSegments, type CalendarEvent } from "./calendar";
+import { dayCountLabel, monthCells, splitWeeks, upcomingEvents, weekSegments, type CalendarEvent } from "./calendar";
 
 function event(id: string, startDate: string, endDate: string): CalendarEvent {
   return {
@@ -89,5 +89,45 @@ describe("여러 날에 걸친 일정 막대", () => {
 
   it("그 주에 없는 일정은 그리지 않는다", () => {
     expect(weekSegments([event("다른 주", "2026-11-01", "2026-11-03")], thirdWeek)).toEqual([]);
+  });
+});
+
+describe("upcomingEvents", () => {
+  const make = (id: string, startDate: string, endDate: string, time = ""): CalendarEvent => ({
+    id,
+    tabId: "tab",
+    title: id,
+    startDate,
+    endDate,
+    time,
+    assignee: "",
+    memo: "",
+    color: null,
+    linkedTabId: null,
+  });
+
+  it("끝난 일정을 빼고 진행 중인 일정은 남긴다", () => {
+    const events = [make("지난", "2026-11-01", "2026-11-05"), make("진행 중", "2026-11-05", "2026-11-06")];
+    expect(upcomingEvents(events, "2026-11-06").map((event) => event.id)).toEqual(["진행 중"]);
+  });
+
+  it("시작일과 시간 순서로 정렬한다", () => {
+    const events = [
+      make("늦은 날", "2026-11-09", "2026-11-09"),
+      make("오후", "2026-11-07", "2026-11-07", "14:00"),
+      make("오전", "2026-11-07", "2026-11-07", "09:00"),
+    ];
+    expect(upcomingEvents(events, "2026-11-06").map((event) => event.id)).toEqual(["오전", "오후", "늦은 날"]);
+  });
+});
+
+describe("dayCountLabel", () => {
+  it("남은 날을 달이 바뀌어도 정확히 센다", () => {
+    expect(dayCountLabel("2026-12-01", "2026-11-29")).toBe("D-2");
+  });
+
+  it("오늘이거나 이미 시작한 일정은 오늘로 표시한다", () => {
+    expect(dayCountLabel("2026-11-06", "2026-11-06")).toBe("오늘");
+    expect(dayCountLabel("2026-11-01", "2026-11-06")).toBe("오늘");
   });
 });

@@ -9,7 +9,7 @@ export type View =
   | { type: "trash" }
   | { type: "members" }
   | { type: "inquiries" }
-  | { type: "empty" };
+  | { type: "home" };
 
 export type NewTabInput = {
   parentId: string | null;
@@ -210,14 +210,10 @@ export function useWorkspace(workspaceId: string, userId: string) {
     };
   }, [supabase, workspaceId, userId, fetchTabs, fetchEvents, fetchNotes, fetchMembers, report]);
 
-  const fallbackRoot = visibleChildren(tabs, null)[0];
-  // 처음 연 탭을 고정한다. 그러지 않으면 다른 사람이 새 탭을 만들 때 보던 화면이 그 탭으로 넘어간다.
-  // 보던 탭을 다른 사람이 지운 경우에도 남아 있는 첫 탭으로 옮긴다.
+  // 보던 탭을 다른 사람이 지우면 첫 화면으로 돌아간다.
   const selectedTabGone =
-    selectedView?.type === "tab" && !tabs.some((tab) => tab.id === selectedView.id && tab.deletedAt === null);
-  if (loaded && fallbackRoot && (!selectedView || selectedTabGone)) setView({ type: "tab", id: fallbackRoot.id });
-  const view: View =
-    selectedView ?? (fallbackRoot ? { type: "tab", id: fallbackRoot.id } : { type: "empty" });
+    loaded && selectedView?.type === "tab" && !tabs.some((tab) => tab.id === selectedView.id && tab.deletedAt === null);
+  const view: View = selectedView && !selectedTabGone ? selectedView : { type: "home" };
 
   function applyTabs(next: Tab[]) {
     const changed = next.filter((tab) => {
@@ -304,7 +300,7 @@ export function useWorkspace(workspaceId: string, userId: string) {
       applyTabs(next);
       const parentId = tabs.find((tab) => tab.id === id)?.parentId;
       const target = next.find((tab) => tab.id === parentId) ?? visibleChildren(next, null)[0];
-      setView(target ? { type: "tab", id: target.id } : { type: "empty" });
+      setView(target ? { type: "tab", id: target.id } : { type: "home" });
     },
     restoreTab(id: string) {
       applyTabs(restoreFromTrash(tabs, id));

@@ -78,3 +78,16 @@ export function weekSegments(events: CalendarEvent[], week: (string | null)[]): 
   }
   return segments;
 }
+
+/** 끝나지 않은 일정을 시작일과 시간 순서로 돌려준다. today는 YYYY-MM-DD 형식이다. */
+export function upcomingEvents(events: CalendarEvent[], today: string): CalendarEvent[] {
+  return events
+    .filter((event) => event.endDate >= today)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.time.localeCompare(b.time));
+}
+
+/** 일정까지 남은 날을 `오늘`, `D-3`처럼 돌려준다. 이미 시작한 일정은 `오늘`이다. */
+export function dayCountLabel(startDate: string, today: string): string {
+  const days = (Date.parse(`${startDate}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000;
+  return days <= 0 ? "오늘" : `D-${days}`;
+}

@@ -45,7 +45,17 @@ export function Sidebar({ workspace, userId, open, onClose, onNewTab }: SidebarP
         )}
       >
         <div className="flex items-center justify-between">
-          <Image src={logo} alt="CAPS" priority className="h-10 w-auto mix-blend-multiply" />
+          <button
+            aria-label="첫 화면으로 가기"
+            aria-current={workspace.view.type === "home" ? "page" : undefined}
+            className="focus-inset rounded-md"
+            onClick={() => {
+              workspace.setView({ type: "home" });
+              onClose();
+            }}
+          >
+            <Image src={logo} alt="" priority className="h-10 w-auto mix-blend-multiply" />
+          </button>
           <Button variant="ghost" size="icon" aria-label="탭 목록 닫기" className="md:hidden" onClick={onClose}>
             <X />
           </Button>

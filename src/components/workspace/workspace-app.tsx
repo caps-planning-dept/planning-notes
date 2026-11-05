@@ -1,9 +1,10 @@
 "use client";
 
-import { Menu, Plus } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { HomeView } from "./home-view";
 import { InquiriesView } from "./inquiries-view";
 import { MembersView } from "./members-view";
 import { NewTabDialog } from "./new-tab-dialog";
@@ -20,7 +21,6 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
   const { view } = workspace;
   const activeTab =
     view.type === "tab" ? workspace.tabs.find((tab) => tab.id === view.id && tab.deletedAt === null) : undefined;
-  const showEmpty = workspace.loaded && !activeTab && (view.type === "tab" || view.type === "empty");
 
   return (
     <div className="flex h-full min-h-0">
@@ -36,7 +36,9 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
           <Button variant="ghost" size="icon" aria-label="탭 목록 열기" onClick={() => setMenuOpen(true)}>
             <Menu />
           </Button>
-          <span className="font-medium">CAPS 기획부</span>
+          <button className="focus-inset min-h-11 font-medium" onClick={() => workspace.setView({ type: "home" })}>
+            CAPS 기획부
+          </button>
         </div>
         {workspace.syncError && (
           <p role="alert" className="bg-destructive/10 px-4 py-2 text-sm text-destructive">
@@ -61,14 +63,8 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
             onNewTab={setNewTabParent}
           />
         )}
-        {showEmpty && (
-          <div className="m-auto flex flex-col items-center gap-3 p-6 text-center">
-            <h1 className="font-display text-3xl">첫 탭을 만들어 보세요</h1>
-            <p className="text-muted-foreground">회의록이나 달력으로 시작할 수 있습니다.</p>
-            <Button className="chamfer rounded-none" onClick={() => setNewTabParent(null)}>
-              <Plus data-icon="inline-start" />새 탭 만들기
-            </Button>
-          </div>
+        {workspace.loaded && view.type === "home" && (
+          <HomeView workspace={workspace} userId={userId} onNewTab={setNewTabParent} />
         )}
       </main>
       <NewTabDialog
