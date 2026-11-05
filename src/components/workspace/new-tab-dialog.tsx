@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, FileText } from "lucide-react";
+import { CalendarDays, ClipboardList, FileText } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,20 +21,22 @@ import { ColorPicker } from "./color-picker";
 const TEMPLATES: { value: TabTemplate; label: string; hint: string; icon: typeof FileText }[] = [
   { value: "note", label: "일반 노트", hint: "회의록과 메모", icon: FileText },
   { value: "calendar", label: "달력", hint: "날짜별 일정", icon: CalendarDays },
+  { value: "capture", label: "캡처", hint: "신청과 조 편성", icon: ClipboardList },
 ];
 
 type NewTabDialogProps = {
   parentId: string | null | undefined;
+  isAdmin: boolean;
   onClose: () => void;
   onCreate: (input: NewTabInput) => void;
 };
 
-export function NewTabDialog({ parentId, onClose, onCreate }: NewTabDialogProps) {
+export function NewTabDialog({ parentId, isAdmin, onClose, onCreate }: NewTabDialogProps) {
   return (
     <Dialog open={parentId !== undefined} onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         {parentId !== undefined && (
-          <NewTabForm parentId={parentId} onClose={onClose} onCreate={onCreate} />
+          <NewTabForm parentId={parentId} isAdmin={isAdmin} onClose={onClose} onCreate={onCreate} />
         )}
       </DialogContent>
     </Dialog>
@@ -43,7 +45,9 @@ export function NewTabDialog({ parentId, onClose, onCreate }: NewTabDialogProps)
 
 type NewTabFormProps = Omit<NewTabDialogProps, "parentId"> & { parentId: string | null };
 
-function NewTabForm({ parentId, onClose, onCreate }: NewTabFormProps) {
+function NewTabForm({ parentId, isAdmin, onClose, onCreate }: NewTabFormProps) {
+  // 캡처 탭은 개인정보를 다루므로 관리자만 만든다.
+  const templates = TEMPLATES.filter((item) => item.value !== "capture" || isAdmin);
   const [title, setTitle] = useState("");
   const [template, setTemplate] = useState<TabTemplate>("note");
   const [color, setColor] = useState<string | null>(parentId ? null : "#1971c2");
@@ -81,8 +85,8 @@ function NewTabForm({ parentId, onClose, onCreate }: NewTabFormProps) {
       </div>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">템플릿</legend>
-        <div className="grid grid-cols-2 gap-2">
-          {TEMPLATES.map(({ value, label, hint, icon: Icon }) => (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {templates.map(({ value, label, hint, icon: Icon }) => (
             <label
               key={value}
               className={cn(

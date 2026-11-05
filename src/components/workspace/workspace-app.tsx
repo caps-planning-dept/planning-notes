@@ -47,7 +47,14 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
           <MembersView workspace={workspace} userId={userId} isAdmin={isAdmin} />
         )}
         {workspace.loaded && activeTab && (
-          <TabPage key={activeTab.id} tab={activeTab} workspace={workspace} onNewTab={setNewTabParent} />
+          <TabPage
+            key={activeTab.id}
+            tab={activeTab}
+            workspace={workspace}
+            userId={userId}
+            isAdmin={isAdmin}
+            onNewTab={setNewTabParent}
+          />
         )}
         {showEmpty && (
           <div className="m-auto flex flex-col items-center gap-3 p-6 text-center">
@@ -61,6 +68,7 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
       </main>
       <NewTabDialog
         parentId={newTabParent}
+        isAdmin={isAdmin}
         onClose={() => setNewTabParent(undefined)}
         onCreate={workspace.createTab}
       />

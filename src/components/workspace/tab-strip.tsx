@@ -1,9 +1,10 @@
 "use client";
 
-import { CalendarDays, FileText, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { Workspace } from "@/hooks/use-workspace";
 import { readableTextOn } from "@/lib/color";
 import { resolveTabColor, type Tab, tabFamily } from "@/lib/workspace";
+import { TabIcon } from "./tab-icon";
 
 type TabStripProps = {
   tab: Tab;
@@ -24,7 +25,6 @@ export function TabStrip({ tab, workspace, onNewTab }: TabStripProps) {
         members.map((member) => {
           const active = member.id === tab.id;
           const color = resolveTabColor(workspace.tabs, member.id);
-          const Icon = member.template === "calendar" ? CalendarDays : FileText;
           return (
             <button
               key={member.id}
@@ -37,7 +37,7 @@ export function TabStrip({ tab, workspace, onNewTab }: TabStripProps) {
               style={active ? { background: color, color: readableTextOn(color) } : undefined}
               onClick={() => workspace.setView({ type: "tab", id: member.id })}
             >
-              <Icon className="size-4 shrink-0" style={active ? undefined : { color }} aria-hidden />
+              <TabIcon template={member.template} className="size-4 shrink-0" style={active ? undefined : { color }} aria-hidden />
               <span className="truncate">{member.title || "제목 없음"}</span>
             </button>
           );

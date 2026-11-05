@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, FileText, Plus, Trash2, Users, X } from "lucide-react";
+import { Plus, Trash2, Users, X } from "lucide-react";
 import Image from "next/image";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { readableTextOn } from "@/lib/color";
 import { cn } from "@/lib/utils";
 import { resolveTabColor, type Tab, trashedRoots, visibleChildren } from "@/lib/workspace";
 import logo from "../../../assets/logo/caps-lockup-on-white.png";
+import { TabIcon } from "./tab-icon";
 
 type SidebarProps = {
   workspace: Workspace;
@@ -102,7 +103,6 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
   const { view } = workspace;
   const active = view.type === "tab" && view.id === tab.id;
   const color = resolveTabColor(workspace.tabs, tab.id);
-  const Icon = tab.template === "calendar" ? CalendarDays : FileText;
 
   return (
     <div
@@ -120,11 +120,7 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
           onPicked();
         }}
       >
-        {active ? (
-          <Icon className="size-4 shrink-0" aria-hidden />
-        ) : (
-          <Icon className="size-4 shrink-0" style={{ color }} aria-hidden />
-        )}
+        <TabIcon template={tab.template} className="size-4 shrink-0" style={active ? undefined : { color }} aria-hidden />
         <span className="truncate">{tab.title || "제목 없음"}</span>
       </button>
       <button

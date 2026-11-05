@@ -2,6 +2,7 @@
 
 import { Palette, Trash2 } from "lucide-react";
 import { type CSSProperties, useState } from "react";
+import { CaptureView } from "@/components/capture/capture-view";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,11 +17,18 @@ import { DEFAULT_TAB_COLOR, resolveTabColor, type Tab } from "@/lib/workspace";
 import { CalendarView } from "./calendar-view";
 import { ColorPicker } from "./color-picker";
 import { NoteEditor } from "./note-editor";
+import { TEMPLATE_LABELS } from "./tab-icon";
 import { TabStrip } from "./tab-strip";
 
-type TabPageProps = { tab: Tab; workspace: Workspace; onNewTab: (parentId: string) => void };
+type TabPageProps = {
+  tab: Tab;
+  workspace: Workspace;
+  userId: string;
+  isAdmin: boolean;
+  onNewTab: (parentId: string) => void;
+};
 
-export function TabPage({ tab, workspace, onNewTab }: TabPageProps) {
+export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPageProps) {
   const [colorOpen, setColorOpen] = useState(false);
   const color = resolveTabColor(workspace.tabs, tab.id);
   const onColor = readableTextOn(color);
@@ -31,7 +39,7 @@ export function TabPage({ tab, workspace, onNewTab }: TabPageProps) {
     <div style={tabStyle} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
       <header className="chamfer-lg m-3 flex shrink-0 flex-col gap-4 bg-(--tab) px-6 py-5 text-(--on-tab) md:m-4 md:px-10 md:py-7">
         <div className="flex items-center justify-between gap-2 text-sm">
-          <span>{tab.template === "calendar" ? "달력" : "일반 노트"}</span>
+          <span>{TEMPLATE_LABELS[tab.template]}</span>
           <div className="flex gap-1">
             <Button
               variant="ghost"
@@ -64,14 +72,16 @@ export function TabPage({ tab, workspace, onNewTab }: TabPageProps) {
 
       <TabStrip tab={tab} workspace={workspace} onNewTab={onNewTab} />
 
-      {tab.template === "note" ? (
+      {tab.template === "note" && (
         <NoteEditor
           tabId={tab.id}
           content={workspace.notes[tab.id]}
           onChange={(content) => workspace.saveNote(tab.id, content)}
         />
-      ) : (
-        <CalendarView tab={tab} color={color} workspace={workspace} />
+      )}
+      {tab.template === "calendar" && <CalendarView tab={tab} color={color} workspace={workspace} />}
+      {tab.template === "capture" && (
+        <CaptureView tabId={tab.id} title={tab.title} members={workspace.members} userId={userId} isAdmin={isAdmin} />
       )}
 
       <Dialog open={colorOpen} onOpenChange={setColorOpen}>
