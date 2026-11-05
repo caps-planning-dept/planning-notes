@@ -170,6 +170,12 @@
   color: inherit;
 }
 
+/* 답글 입력창과 답글 창이 사이드바에 가려지거나 좁은 화면 밖으로 나가지 않게 한다. */
+.lb-root.lb-tiptap-floating {
+  --lb-tiptap-floating-size: min(20rem, calc(100vw - 2rem));
+  z-index: 50;
+}
+
 /* 답글이 달린 글에도 직접 고른 글씨 색과 굵기를 유지한다. */
 .note-content .lb-tiptap-thread-mark {
   color: inherit;

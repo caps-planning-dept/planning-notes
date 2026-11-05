@@ -19,7 +19,7 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
   const [newTabParent, setNewTabParent] = useState<string | null | undefined>(undefined);
   const { view } = workspace;
   const activeTab =
-    view.type === "tab" ? workspace.tabs.find((tab) => tab.id === view.id) : undefined;
+    view.type === "tab" ? workspace.tabs.find((tab) => tab.id === view.id && tab.deletedAt === null) : undefined;
   const showEmpty = workspace.loaded && !activeTab && (view.type === "tab" || view.type === "empty");
 
   return (

@@ -211,6 +211,11 @@ export function useWorkspace(workspaceId: string, userId: string) {
   }, [supabase, workspaceId, userId, fetchTabs, fetchEvents, fetchNotes, fetchMembers, report]);
 
   const fallbackRoot = visibleChildren(tabs, null)[0];
+  // 처음 연 탭을 고정한다. 그러지 않으면 다른 사람이 새 탭을 만들 때 보던 화면이 그 탭으로 넘어간다.
+  // 보던 탭을 다른 사람이 지운 경우에도 남아 있는 첫 탭으로 옮긴다.
+  const selectedTabGone =
+    selectedView?.type === "tab" && !tabs.some((tab) => tab.id === selectedView.id && tab.deletedAt === null);
+  if (loaded && fallbackRoot && (!selectedView || selectedTabGone)) setView({ type: "tab", id: fallbackRoot.id });
   const view: View =
     selectedView ?? (fallbackRoot ? { type: "tab", id: fallbackRoot.id } : { type: "empty" });
 
@@ -245,7 +250,6 @@ export function useWorkspace(workspaceId: string, userId: string) {
     createTab(input: NewTabInput) {
       const id = crypto.randomUUID();
       setTabs((current) => [...current, { ...input, id, deletedAt: null, createdAt: Date.now(), pinnedAt: null }]);
-      setView({ type: "tab", id });
       supabase
         .from("tabs")
         .insert({
@@ -256,7 +260,14 @@ export function useWorkspace(workspaceId: string, userId: string) {
           template: input.template,
           color: input.color,
         })
-        .then(({ error }) => report(error));
+        .then(({ error }) => {
+          if (error) {
+            setTabs((current) => current.filter((tab) => tab.id !== id));
+            return report(error);
+          }
+          // 노트 입장 권한은 DB의 탭을 확인하므로, 저장이 끝난 뒤에 탭을 연다.
+          setView({ type: "tab", id });
+        });
     },
     updateTab(id: string, change: Partial<Pick<Tab, "title" | "color">>) {
       setTabs((current) => current.map((tab) => (tab.id === id ? { ...tab, ...change } : tab)));
@@ -276,14 +287,17 @@ export function useWorkspace(workspaceId: string, userId: string) {
         .then(({ error }) => report(error));
     },
     updateDisplayName(name: string) {
-      setMembers((current) =>
-        current.map((member) => (member.userId === userId ? { ...member, displayName: name } : member)),
-      );
+      // 노트는 이름이 바뀌면 다시 입장해 DB의 이름을 받으므로, 저장이 끝난 뒤에 화면을 바꾼다.
       supabase
         .from("profiles")
         .update({ display_name: name })
         .eq("id", userId)
-        .then(({ error }) => report(error));
+        .then(({ error }) => {
+          if (error) return report(error);
+          setMembers((current) =>
+            current.map((member) => (member.userId === userId ? { ...member, displayName: name } : member)),
+          );
+        });
     },
     trashTab(id: string) {
       const next = moveToTrash(tabs, id, Date.now());

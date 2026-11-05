@@ -5,8 +5,10 @@ import {
   ClientSideSuspense,
   LiveblocksProvider,
   RoomProvider,
+  useClient,
   useErrorListener,
   useOthers,
+  useSelf,
   useStatus,
   useThreads,
 } from "@liveblocks/react/suspense";
@@ -32,7 +34,16 @@ import {
   Underline,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Button } from "@/components/ui/button";
 import type { Member } from "@/hooks/use-workspace";
 import { cursorColor, noteRoomId } from "@/lib/collaboration";
@@ -41,6 +52,7 @@ import { cn } from "@/lib/utils";
 
 type NoteEditorProps = {
   tabId: string;
+  userId: string;
   content: JSONContent | undefined;
   members: Member[];
   onChange: (content: JSONContent) => void;
@@ -82,11 +94,15 @@ async function authorize(room?: string) {
   return response.json();
 }
 
-export function NoteEditor({ tabId, content, members, onChange }: NoteEditorProps) {
+const MembersContext = createContext<Member[]>([]);
+
+export function NoteEditor({ tabId, userId, content, members, onChange }: NoteEditorProps) {
+  // 답글 이름을 다시 찾기 전에 최신 목록이 준비되도록 화면 반영 직전에 바꾼다.
   const membersRef = useRef(members);
-  useEffect(() => {
+  useLayoutEffect(() => {
     membersRef.current = members;
   }, [members]);
+  const myName = members.find((member) => member.userId === userId)?.displayName;
 
   // 답글에는 사용자 번호만 저장되므로, 화면에 보일 이름은 멤버 목록에서 찾는다.
   const resolveUsers = useCallback(({ userIds }: { userIds: string[] }) => {
@@ -98,14 +114,28 @@ export function NoteEditor({ tabId, content, members, onChange }: NoteEditorProp
   }, []);
 
   return (
-    <LiveblocksProvider authEndpoint={authorize} resolveUsers={resolveUsers}>
+    // 커서 이름은 입장 권한에 담겨 있으므로, 내 이름이 바뀌면 다시 입장해 새 이름을 받는다.
+    <LiveblocksProvider key={myName} authEndpoint={authorize} resolveUsers={resolveUsers}>
       <LiveblocksUiConfig overrides={COMMENT_TEXT}>
-        <RoomProvider id={noteRoomId(tabId)}>
-          <NoteRoomContent content={content} onChange={onChange} />
-        </RoomProvider>
+        <MembersContext.Provider value={members}>
+          <ReplyNameSync members={members} />
+          <RoomProvider id={noteRoomId(tabId)}>
+            <NoteRoomContent content={content} onChange={onChange} />
+          </RoomProvider>
+        </MembersContext.Provider>
       </LiveblocksUiConfig>
     </LiveblocksProvider>
   );
+}
+
+/** 멤버 이름이 바뀌면 답글에 저장해 둔 이름을 버리고 다시 찾게 한다. */
+function ReplyNameSync({ members }: { members: Member[] }) {
+  const client = useClient();
+  const names = members.map((member) => `${member.userId}:${member.displayName}`).join();
+  useEffect(() => {
+    client.resolvers.invalidateUsers();
+  }, [client, names]);
+  return null;
 }
 
 type NoteContentProps = Pick<NoteEditorProps, "content" | "onChange">;
@@ -175,7 +205,7 @@ function CollaborativeEditor({ content, onChange }: NoteContentProps) {
       {editor && (
         <>
           <ReplyBubble editor={editor} />
-          <FloatingComposer editor={editor} showAttachments={false} className="w-80 max-w-[calc(100vw-2rem)]" />
+          <FloatingComposer editor={editor} showAttachments={false} />
           <Threads editor={editor} wide={wide} />
         </>
       )}
@@ -207,12 +237,18 @@ function Threads({ editor, wide }: { editor: Editor; wide: boolean }) {
   const { threads } = useThreads({ query: { resolved: false } });
   if (wide) return <AnchoredThreads editor={editor} threads={threads} components={THREAD_COMPONENTS} className="w-70" />;
   return (
-    <FloatingThreads
-      editor={editor}
-      threads={threads}
-      components={THREAD_COMPONENTS}
-      className="w-80 max-w-[calc(100vw-2rem)]"
-    />
+    <>
+      <FloatingThreads editor={editor} threads={threads} components={THREAD_COMPONENTS} />
+      {/* 옆에 칸을 둘 수 없는 화면에서는 본문 아래에 답글을 모아 보여 준다. */}
+      {threads.length > 0 && (
+        <section aria-label="답글" className="mt-6 flex flex-col gap-3 border-t pt-4">
+          <h2 className="text-sm font-medium">답글</h2>
+          {threads.map((thread) => (
+            <ReplyThread key={thread.id} thread={thread} className="rounded-md border" />
+          ))}
+        </section>
+      )}
+    </>
   );
 }
 
@@ -328,10 +364,14 @@ function ColorMenu({ label, icon: Icon, colors, active, onPick, onClear }: Color
 function ConnectionStatus() {
   const status = useStatus();
   const others = useOthers();
+  const myId = useSelf((self) => self.id);
+  const members = useContext(MembersContext);
 
   if (status !== "connected") return <>연결 중</>;
-  if (others.length === 0) return <>연결됨</>;
-  const names = others.map((other) => other.info?.name ?? "멤버");
+  // 한 사람이 탭을 여러 개 열어도 한 명으로 세고, 내 다른 탭은 세지 않는다.
+  const otherIds = [...new Set(others.map((other) => other.id))].filter((id) => id !== myId);
+  if (otherIds.length === 0) return <>연결됨</>;
+  const names = otherIds.map((id) => members.find((member) => member.userId === id)?.displayName ?? "멤버");
   return <>{names.slice(0, 2).join(", ")}{names.length > 2 && ` 외 ${names.length - 2}명`} 함께 편집 중</>;
 }
 
