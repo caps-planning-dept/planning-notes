@@ -1,24 +1,10 @@
 import type { JSONContent } from "@tiptap/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarEvent } from "@/lib/calendar";
-import {
-  moveToTrash,
-  purgeExpired,
-  restoreFromTrash,
-  type Tab,
-  type TabTemplate,
-  visibleChildren,
-} from "@/lib/workspace";
+import { createClient } from "@/lib/supabase/client";
+import { moveToTrash, restoreFromTrash, type Tab, type TabTemplate, visibleChildren } from "@/lib/workspace";
 
-const STORAGE_KEY = "caps-planning:workspace:v1";
-
-export type View = { type: "tab"; id: string } | { type: "trash" } | { type: "empty" };
-
-type WorkspaceData = {
-  tabs: Tab[];
-  notes: Record<string, JSONContent>;
-  events: CalendarEvent[];
-};
+export type View = { type: "tab"; id: string } | { type: "trash" } | { type: "members" } | { type: "empty" };
 
 export type NewTabInput = {
   parentId: string | null;
@@ -27,107 +13,310 @@ export type NewTabInput = {
   color: string | null;
 };
 
-function initialData(): WorkspaceData {
+export type Member = {
+  userId: string;
+  role: "admin" | "member";
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  lastSignInAt: string | null;
+  lastActiveAt: string | null;
+};
+
+type TabRow = {
+  id: string;
+  parent_id: string | null;
+  title: string;
+  template: TabTemplate;
+  color: string | null;
+  deleted_at: string | null;
+};
+
+type EventRow = {
+  id: string;
+  tab_id: string;
+  title: string;
+  start_date: string;
+  end_date: string;
+  event_time: string | null;
+  assignee: string;
+  memo: string;
+  color: string | null;
+  linked_tab_id: string | null;
+};
+
+const ACTIVITY_INTERVAL_MS = 5 * 60 * 1000;
+const NOTE_SAVE_DELAY_MS = 800;
+
+function toTab(row: TabRow): Tab {
   return {
-    tabs: [
-      {
-        id: "first-note",
-        parentId: null,
-        title: "첫 회의록",
-        template: "note",
-        color: "#5645d4",
-        deletedAt: null,
-      },
-      {
-        id: "first-calendar",
-        parentId: null,
-        title: "동아리 일정",
-        template: "calendar",
-        color: "#0f8a6a",
-        deletedAt: null,
-      },
-    ],
-    notes: {},
-    events: [],
+    id: row.id,
+    parentId: row.parent_id,
+    title: row.title,
+    template: row.template,
+    color: row.color,
+    deletedAt: row.deleted_at ? new Date(row.deleted_at).getTime() : null,
   };
 }
 
-function loadData(): WorkspaceData {
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) return initialData();
-    const data = JSON.parse(saved) as WorkspaceData;
-    const tabs = purgeExpired(data.tabs, Date.now());
-    const kept = new Set(tabs.map((tab) => tab.id));
-    return {
-      tabs,
-      notes: Object.fromEntries(Object.entries(data.notes).filter(([id]) => kept.has(id))),
-      events: data.events.filter((event) => kept.has(event.tabId)),
-    };
-  } catch {
-    return initialData();
-  }
+function toEvent(row: EventRow): CalendarEvent {
+  return {
+    id: row.id,
+    tabId: row.tab_id,
+    title: row.title,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    time: row.event_time?.slice(0, 5) ?? "",
+    assignee: row.assignee,
+    memo: row.memo,
+    color: row.color,
+    linkedTabId: row.linked_tab_id,
+  };
 }
 
-export function useWorkspace() {
-  const [data, setData] = useState(loadData);
-  const [view, setView] = useState<View>(() => {
-    const first = visibleChildren(data.tabs, null)[0];
-    return first ? { type: "tab", id: first.id } : { type: "empty" };
-  });
+function fromEvent(event: CalendarEvent) {
+  return {
+    id: event.id,
+    tab_id: event.tabId,
+    title: event.title,
+    start_date: event.startDate,
+    end_date: event.endDate,
+    event_time: event.time || null,
+    assignee: event.assignee,
+    memo: event.memo,
+    color: event.color,
+    linked_tab_id: event.linkedTabId,
+  };
+}
+
+export function useWorkspace(workspaceId: string, userId: string) {
+  const supabase = useMemo(() => createClient(), []);
+  const [loaded, setLoaded] = useState(false);
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [notes, setNotes] = useState<Record<string, JSONContent>>({});
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [onlineIds, setOnlineIds] = useState<string[]>([]);
+  const [selectedView, setView] = useState<View | null>(null);
+  const [syncError, setSyncError] = useState("");
+  const noteTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const report = useCallback((error: { message: string } | null) => {
+    if (error) setSyncError("저장하지 못한 변경이 있습니다. 새로고침 후 다시 시도해 주세요.");
+  }, []);
+
+  const fetchTabs = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("tabs")
+      .select("id, parent_id, title, template, color, deleted_at")
+      .eq("workspace_id", workspaceId)
+      .order("created_at");
+    if (error) return report(error);
+    setTabs((data as TabRow[]).map(toTab));
+  }, [supabase, workspaceId, report]);
+
+  const fetchEvents = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("calendar_events")
+      .select("id, tab_id, title, start_date, end_date, event_time, assignee, memo, color, linked_tab_id")
+      .order("start_date");
+    if (error) return report(error);
+    setEvents((data as EventRow[]).map(toEvent));
+  }, [supabase, report]);
+
+  const fetchNotes = useCallback(async () => {
+    const { data, error } = await supabase.from("notes").select("tab_id, content");
+    if (error) return report(error);
+    setNotes(Object.fromEntries(data.map((row) => [row.tab_id, row.content as JSONContent])));
+  }, [supabase, report]);
+
+  const fetchMembers = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("workspace_members")
+      .select("user_id, role, profiles(email, display_name, avatar_url, last_sign_in_at, last_active_at)")
+      .eq("workspace_id", workspaceId);
+    if (error) return report(error);
+    setMembers(
+      data.flatMap((row) => {
+        const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+        if (!profile) return [];
+        return [
+          {
+            userId: row.user_id,
+            role: row.role as Member["role"],
+            email: profile.email,
+            displayName: profile.display_name,
+            avatarUrl: profile.avatar_url,
+            lastSignInAt: profile.last_sign_in_at,
+            lastActiveAt: profile.last_active_at,
+          },
+        ];
+      }),
+    );
+  }, [supabase, workspaceId, report]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      // 저장 공간을 쓸 수 없어도 화면은 계속 동작한다.
-    }
-  }, [data]);
+    let cancelled = false;
+    Promise.resolve()
+      .then(() => Promise.all([fetchTabs(), fetchEvents(), fetchNotes(), fetchMembers()]))
+      .then(() => {
+        if (!cancelled) setLoaded(true);
+      });
+
+    const dataChannel = supabase
+      .channel(`workspace-data:${workspaceId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tabs" }, fetchTabs)
+      .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events" }, fetchEvents)
+      .on("postgres_changes", { event: "*", schema: "public", table: "workspace_members" }, fetchMembers)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, fetchMembers)
+      .subscribe();
+
+    const presenceChannel = supabase.channel(`workspace-presence:${workspaceId}`, {
+      config: { presence: { key: userId } },
+    });
+    presenceChannel
+      .on("presence", { event: "sync" }, () => {
+        setOnlineIds(Object.keys(presenceChannel.presenceState()));
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") presenceChannel.track({ onlineAt: new Date().toISOString() });
+      });
+
+    const touchActivity = () => {
+      if (document.visibilityState !== "visible") return;
+      supabase
+        .from("profiles")
+        .update({ last_active_at: new Date().toISOString() })
+        .eq("id", userId)
+        .then(({ error }) => report(error));
+    };
+    touchActivity();
+    const activityTimer = setInterval(touchActivity, ACTIVITY_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(activityTimer);
+      supabase.removeChannel(dataChannel);
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [supabase, workspaceId, userId, fetchTabs, fetchEvents, fetchNotes, fetchMembers, report]);
+
+  const fallbackRoot = visibleChildren(tabs, null)[0];
+  const view: View =
+    selectedView ?? (fallbackRoot ? { type: "tab", id: fallbackRoot.id } : { type: "empty" });
+
+  function applyTabs(next: Tab[]) {
+    const changed = next.filter((tab) => {
+      const before = tabs.find((item) => item.id === tab.id);
+      return before?.deletedAt !== tab.deletedAt || before?.parentId !== tab.parentId;
+    });
+    setTabs(next);
+    changed.forEach((tab) => {
+      supabase
+        .from("tabs")
+        .update({
+          parent_id: tab.parentId,
+          deleted_at: tab.deletedAt === null ? null : new Date(tab.deletedAt).toISOString(),
+        })
+        .eq("id", tab.id)
+        .then(({ error }) => report(error));
+    });
+  }
 
   return {
-    ...data,
+    loaded,
+    tabs,
+    notes,
+    events,
+    members,
+    onlineIds,
     view,
     setView,
+    syncError,
     createTab(input: NewTabInput) {
       const id = crypto.randomUUID();
-      setData((current) => ({
-        ...current,
-        tabs: [...current.tabs, { ...input, id, deletedAt: null }],
-      }));
+      setTabs((current) => [...current, { ...input, id, deletedAt: null }]);
       setView({ type: "tab", id });
+      supabase
+        .from("tabs")
+        .insert({
+          id,
+          workspace_id: workspaceId,
+          parent_id: input.parentId,
+          title: input.title,
+          template: input.template,
+          color: input.color,
+        })
+        .then(({ error }) => report(error));
     },
     updateTab(id: string, change: Partial<Pick<Tab, "title" | "color">>) {
-      setData((current) => ({
-        ...current,
-        tabs: current.tabs.map((tab) => (tab.id === id ? { ...tab, ...change } : tab)),
-      }));
+      setTabs((current) => current.map((tab) => (tab.id === id ? { ...tab, ...change } : tab)));
+      supabase
+        .from("tabs")
+        .update(change)
+        .eq("id", id)
+        .then(({ error }) => report(error));
     },
     trashTab(id: string) {
-      const tabs = moveToTrash(data.tabs, id, Date.now());
-      setData({ ...data, tabs });
-      const parentId = data.tabs.find((tab) => tab.id === id)?.parentId;
-      const next = tabs.find((tab) => tab.id === parentId) ?? visibleChildren(tabs, null)[0];
-      setView(next ? { type: "tab", id: next.id } : { type: "empty" });
+      const next = moveToTrash(tabs, id, Date.now());
+      applyTabs(next);
+      const parentId = tabs.find((tab) => tab.id === id)?.parentId;
+      const target = next.find((tab) => tab.id === parentId) ?? visibleChildren(next, null)[0];
+      setView(target ? { type: "tab", id: target.id } : { type: "empty" });
     },
     restoreTab(id: string) {
-      setData((current) => ({ ...current, tabs: restoreFromTrash(current.tabs, id) }));
+      applyTabs(restoreFromTrash(tabs, id));
     },
     saveNote(id: string, content: JSONContent) {
-      setData((current) => ({ ...current, notes: { ...current.notes, [id]: content } }));
+      setNotes((current) => ({ ...current, [id]: content }));
+      const timers = noteTimers.current;
+      const pending = timers.get(id);
+      if (pending) clearTimeout(pending);
+      timers.set(
+        id,
+        setTimeout(() => {
+          timers.delete(id);
+          supabase
+            .from("notes")
+            .upsert({ tab_id: id, content, updated_at: new Date().toISOString() })
+            .then(({ error }) => report(error));
+        }, NOTE_SAVE_DELAY_MS),
+      );
     },
     saveEvent(event: CalendarEvent) {
-      setData((current) => ({
-        ...current,
-        events: current.events.some((item) => item.id === event.id)
-          ? current.events.map((item) => (item.id === event.id ? event : item))
-          : [...current.events, event],
-      }));
+      setEvents((current) =>
+        current.some((item) => item.id === event.id)
+          ? current.map((item) => (item.id === event.id ? event : item))
+          : [...current, event],
+      );
+      supabase
+        .from("calendar_events")
+        .upsert(fromEvent(event))
+        .then(({ error }) => report(error));
     },
     deleteEvent(id: string) {
-      setData((current) => ({
-        ...current,
-        events: current.events.filter((event) => event.id !== id),
-      }));
+      setEvents((current) => current.filter((event) => event.id !== id));
+      supabase
+        .from("calendar_events")
+        .delete()
+        .eq("id", id)
+        .then(({ error }) => report(error));
+    },
+    removeMember(memberId: string) {
+      setMembers((current) => current.filter((member) => member.userId !== memberId));
+      supabase
+        .from("workspace_members")
+        .delete()
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", memberId)
+        .then(({ error }) => report(error));
+    },
+    async createInvitation(): Promise<string | null> {
+      const { data, error } = await supabase.rpc("create_invitation", {
+        target_workspace: workspaceId,
+      });
+      report(error);
+      return error ? null : (data as string);
     },
   };
 }

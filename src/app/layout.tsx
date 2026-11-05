@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Black_Han_Sans } from "next/font/google";
 import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+import "@liveblocks/react-ui/styles.css";
+import "@liveblocks/react-tiptap/styles.css";
 import "./globals.css";
 
 const display = Black_Han_Sans({

@@ -66,6 +66,7 @@ export function TabPage({ tab, workspace, onNewTab }: TabPageProps) {
 
       {tab.template === "note" ? (
         <NoteEditor
+          tabId={tab.id}
           content={workspace.notes[tab.id]}
           onChange={(content) => workspace.saveNote(tab.id, content)}
         />

@@ -1,7 +1,8 @@
 "use client";
 
-import { CalendarDays, FileText, Plus, Trash2, X } from "lucide-react";
+import { CalendarDays, FileText, Plus, Trash2, Users, X } from "lucide-react";
 import Image from "next/image";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Button } from "@/components/ui/button";
 import type { Workspace } from "@/hooks/use-workspace";
 import { readableTextOn } from "@/lib/color";
@@ -19,6 +20,7 @@ type SidebarProps = {
 export function Sidebar({ workspace, open, onClose, onNewTab }: SidebarProps) {
   const trashCount = trashedRoots(workspace.tabs).length;
   const trashActive = workspace.view.type === "trash";
+  const membersActive = workspace.view.type === "members";
 
   return (
     <>
@@ -49,6 +51,18 @@ export function Sidebar({ workspace, open, onClose, onNewTab }: SidebarProps) {
         </nav>
         <Button
           variant="ghost"
+          aria-current={membersActive ? "page" : undefined}
+          className={cn("justify-start", membersActive && "bg-muted")}
+          onClick={() => {
+            workspace.setView({ type: "members" });
+            onClose();
+          }}
+        >
+          <Users data-icon="inline-start" />
+          멤버 ({workspace.members.length})
+        </Button>
+        <Button
+          variant="ghost"
           aria-current={trashActive ? "page" : undefined}
           className={cn("justify-start", trashActive && "bg-muted")}
           onClick={() => {
@@ -59,9 +73,7 @@ export function Sidebar({ workspace, open, onClose, onNewTab }: SidebarProps) {
           <Trash2 data-icon="inline-start" />
           휴지통{trashCount > 0 && ` (${trashCount})`}
         </Button>
-        <p className="px-2 text-xs leading-relaxed text-muted-foreground">
-          개발 단계라 내용이 이 브라우저에만 저장됩니다.
-        </p>
+        <SignOutButton />
       </aside>
     </>
   );

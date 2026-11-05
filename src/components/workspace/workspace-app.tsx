@@ -4,18 +4,22 @@ import { Menu, Plus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { MembersView } from "./members-view";
 import { NewTabDialog } from "./new-tab-dialog";
 import { Sidebar } from "./sidebar";
 import { TabPage } from "./tab-page";
 import { TrashView } from "./trash-view";
 
-export function WorkspaceApp() {
-  const workspace = useWorkspace();
+type WorkspaceAppProps = { workspaceId: string; userId: string; isAdmin: boolean };
+
+export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps) {
+  const workspace = useWorkspace(workspaceId, userId);
   const [menuOpen, setMenuOpen] = useState(false);
   const [newTabParent, setNewTabParent] = useState<string | null | undefined>(undefined);
   const { view } = workspace;
   const activeTab =
     view.type === "tab" ? workspace.tabs.find((tab) => tab.id === view.id) : undefined;
+  const showEmpty = workspace.loaded && !activeTab && (view.type === "tab" || view.type === "empty");
 
   return (
     <div className="flex h-full min-h-0">
@@ -32,11 +36,20 @@ export function WorkspaceApp() {
           </Button>
           <span className="font-medium">CAPS 기획부</span>
         </div>
-        {view.type === "trash" && <TrashView workspace={workspace} />}
-        {activeTab && (
+        {workspace.syncError && (
+          <p role="alert" className="bg-destructive/10 px-4 py-2 text-sm text-destructive">
+            {workspace.syncError}
+          </p>
+        )}
+        {!workspace.loaded && <p className="m-auto text-muted-foreground">불러오는 중입니다.</p>}
+        {workspace.loaded && view.type === "trash" && <TrashView workspace={workspace} />}
+        {workspace.loaded && view.type === "members" && (
+          <MembersView workspace={workspace} userId={userId} isAdmin={isAdmin} />
+        )}
+        {workspace.loaded && activeTab && (
           <TabPage key={activeTab.id} tab={activeTab} workspace={workspace} onNewTab={setNewTabParent} />
         )}
-        {!activeTab && view.type !== "trash" && (
+        {showEmpty && (
           <div className="m-auto flex flex-col items-center gap-3 p-6 text-center">
             <h1 className="font-display text-3xl">첫 탭을 만들어 보세요</h1>
             <p className="text-muted-foreground">회의록이나 달력으로 시작할 수 있습니다.</p>
