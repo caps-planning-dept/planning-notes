@@ -40,7 +40,7 @@ export function Sidebar({ workspace, userId, open, onClose, onNewTab }: SidebarP
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col gap-3 border-r bg-sidebar p-3 transition-transform md:static md:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col gap-3 border-r bg-sidebar p-3 transition-transform motion-reduce:transition-none md:static md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >

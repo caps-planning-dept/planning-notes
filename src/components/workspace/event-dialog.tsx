@@ -42,6 +42,7 @@ export function EventDialog({ tab, tabColor, date, event, workspace, onClose }: 
     },
   );
   const [error, setError] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const noteTabs = workspace.tabs.filter((item) => item.template === "note" && item.deletedAt === null);
   const edit = (change: Partial<CalendarEvent>) => {
     setDraft({ ...draft, ...change });
@@ -134,11 +135,13 @@ export function EventDialog({ tab, tabColor, date, event, workspace, onClose }: 
                 variant="destructive"
                 className="sm:mr-auto"
                 onClick={() => {
+                  // 일정은 휴지통 없이 바로 지워지므로 한 번 더 눌러야 삭제한다.
+                  if (!confirmingDelete) return setConfirmingDelete(true);
                   workspace.deleteEvent(event.id);
                   onClose();
                 }}
               >
-                삭제
+                {confirmingDelete ? "한 번 더 누르면 삭제" : "삭제"}
               </Button>
             )}
             <Button type="button" variant="outline" onClick={onClose}>

@@ -24,6 +24,12 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
 
   return (
     <div className="flex h-full min-h-0">
+      <a
+        href="#main"
+        className="sr-only z-50 bg-background p-3 focus-visible:not-sr-only focus-visible:fixed focus-visible:top-2 focus-visible:left-2"
+      >
+        본문으로 건너뛰기
+      </a>
       <Sidebar
         workspace={workspace}
         userId={userId}
@@ -31,7 +37,7 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
         onClose={() => setMenuOpen(false)}
         onNewTab={setNewTabParent}
       />
-      <main className="flex min-w-0 flex-1 flex-col">
+      <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
         <div className="flex items-center gap-2 border-b p-2 md:hidden">
           <Button variant="ghost" size="icon" aria-label="탭 목록 열기" onClick={() => setMenuOpen(true)}>
             <Menu />

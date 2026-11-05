@@ -99,29 +99,29 @@ export function ApplyForm({ token, title, dates, activities }: ApplyFormProps) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="apply-name">이름</Label>
-            <Input id="apply-name" maxLength={50} value={name} aria-invalid={Boolean(errors.name)} onChange={(e) => setName(e.target.value)} />
+            <Input id="apply-name" name="name" autoComplete="name" maxLength={50} value={name} aria-invalid={Boolean(errors.name)} onChange={(e) => setName(e.target.value)} />
             <FieldError message={errors.name} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="apply-student-id">학번</Label>
-            <Input id="apply-student-id" inputMode="numeric" maxLength={12} value={studentId} aria-invalid={Boolean(errors.studentId)} onChange={(e) => setStudentId(e.target.value)} />
+            <Input id="apply-student-id" name="student-id" autoComplete="off" inputMode="numeric" maxLength={12} value={studentId} aria-invalid={Boolean(errors.studentId)} onChange={(e) => setStudentId(e.target.value)} />
             <FieldError message={errors.studentId} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="apply-cohort">기수</Label>
-            <Input id="apply-cohort" maxLength={20} placeholder="예: 40.5기" className="placeholder:text-muted-foreground/60" value={cohort} aria-invalid={Boolean(errors.cohort)} onChange={(e) => setCohort(e.target.value)} />
+            <Input id="apply-cohort" name="cohort" autoComplete="off" maxLength={20} placeholder="예: 40.5기" className="placeholder:text-muted-foreground/60" value={cohort} aria-invalid={Boolean(errors.cohort)} onChange={(e) => setCohort(e.target.value)} />
             <FieldError message={errors.cohort} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="apply-major">전공</Label>
-            <Input id="apply-major" maxLength={100} placeholder="예: 컴퓨터AI학부" className="placeholder:text-muted-foreground/60" value={major} aria-invalid={Boolean(errors.major)} onChange={(e) => setMajor(e.target.value)} />
+            <Input id="apply-major" name="major" autoComplete="off" maxLength={100} placeholder="예: 컴퓨터AI학부" className="placeholder:text-muted-foreground/60" value={major} aria-invalid={Boolean(errors.major)} onChange={(e) => setMajor(e.target.value)} />
             <FieldError message={errors.major} />
           </div>
         </div>
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="apply-teammate">함께 조를 하고 싶은 사람 (선택)</Label>
-          <Input id="apply-teammate" maxLength={100} value={teammate} onChange={(e) => setTeammate(e.target.value)} />
+          <Input id="apply-teammate" name="teammate" autoComplete="off" maxLength={100} value={teammate} onChange={(e) => setTeammate(e.target.value)} />
         </div>
 
         <fieldset className="flex flex-col gap-2">

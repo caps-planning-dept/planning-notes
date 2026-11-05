@@ -145,6 +145,11 @@ export function useWorkspace(workspaceId: string, userId: string) {
       .select("user_id, role, profiles(email, display_name, avatar_url, last_sign_in_at, last_active_at)")
       .eq("workspace_id", workspaceId);
     if (error) return report(error);
+    // 내보내진 사람의 열린 화면을 초대 안내로 보낸다. 데이터 권한은 DB가 이미 막고 있다.
+    if (!data.some((row) => row.user_id === userId)) {
+      window.location.replace("/");
+      return;
+    }
     setMembers(
       data.flatMap((row) => {
         const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
@@ -162,7 +167,7 @@ export function useWorkspace(workspaceId: string, userId: string) {
         ];
       }),
     );
-  }, [supabase, workspaceId, report]);
+  }, [supabase, workspaceId, userId, report]);
 
   useEffect(() => {
     let cancelled = false;

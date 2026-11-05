@@ -65,7 +65,7 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
           aria-label="탭 이름"
           value={tab.title}
           placeholder="제목 없음"
-          className="w-full bg-transparent font-display text-4xl leading-tight outline-none placeholder:text-current placeholder:opacity-60 md:text-5xl"
+          className="w-full bg-transparent font-display text-4xl leading-tight underline-offset-8 outline-none focus-visible:underline placeholder:text-current placeholder:opacity-60 md:text-5xl"
           onChange={(event) => workspace.updateTab(tab.id, { title: event.target.value })}
         />
       </header>

@@ -21,6 +21,8 @@ const noteSerif = Noto_Serif_KR({
 export const metadata: Metadata = {
   title: "CAPS 기획부",
   description: "CAPS 기획부의 회의록과 일정을 함께 관리하는 공간",
+  // 멤버 전용 앱이므로 검색 결과에 나오지 않게 한다.
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
