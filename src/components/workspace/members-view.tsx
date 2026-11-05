@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, UserPlus, UserX } from "lucide-react";
+import { Copy, UserPlus, UserX, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useInvitations } from "@/hooks/use-invitations";
 import type { Member, Workspace } from "@/hooks/use-workspace";
 
 const dateFormat = new Intl.DateTimeFormat("ko-KR", {
@@ -22,9 +23,10 @@ const dateFormat = new Intl.DateTimeFormat("ko-KR", {
 
 const formatTime = (value: string | null) => (value ? dateFormat.format(new Date(value)) : "기록 없음");
 
-type MembersViewProps = { workspace: Workspace; userId: string; isAdmin: boolean };
+type MembersViewProps = { workspace: Workspace; workspaceId: string; userId: string; isAdmin: boolean };
 
-export function MembersView({ workspace, userId, isAdmin }: MembersViewProps) {
+export function MembersView({ workspace, workspaceId, userId, isAdmin }: MembersViewProps) {
+  const { invitations, error: inviteError, refresh, revoke } = useInvitations(workspaceId, isAdmin);
   const [inviteLink, setInviteLink] = useState("");
   const [copied, setCopied] = useState(false);
   const [removing, setRemoving] = useState<Member | null>(null);
@@ -33,6 +35,7 @@ export function MembersView({ workspace, userId, isAdmin }: MembersViewProps) {
     setCopied(false);
     const token = await workspace.createInvitation();
     if (token) setInviteLink(`${window.location.origin}/invite/${token}`);
+    await refresh();
   }
 
   async function copyLink() {
@@ -71,6 +74,25 @@ export function MembersView({ workspace, userId, isAdmin }: MembersViewProps) {
               </Button>
             </div>
           )}
+          {inviteError && <p role="alert" className="text-sm text-destructive">{inviteError}</p>}
+          {invitations.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h2 className="text-sm font-medium">아직 유효한 초대 링크 {invitations.length}개</h2>
+              <ul className="flex flex-col divide-y border-y">
+                {invitations.map((invitation) => (
+                  <li key={invitation.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <span className="text-muted-foreground">
+                      {formatTime(invitation.createdAt)} 생성 · {formatTime(invitation.expiresAt)} 만료
+                    </span>
+                    <Button variant="outline" onClick={() => revoke(invitation.id)}>
+                      <X data-icon="inline-start" />
+                      취소
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
 
@@ -107,7 +129,9 @@ export function MembersView({ workspace, userId, isAdmin }: MembersViewProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{removing?.displayName} 님을 내보낼까요?</DialogTitle>
-            <DialogDescription>내보내면 바로 탭과 일정을 볼 수 없게 됩니다.</DialogDescription>
+            <DialogDescription>
+              내보내면 바로 탭과 일정을 볼 수 없게 됩니다. 아직 유효한 초대 링크가 있으면 다시 들어올 수 있으니 함께 취소해 주세요.
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRemoving(null)}>

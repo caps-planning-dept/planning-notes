@@ -123,6 +123,23 @@ export function removeTeamMember(team: CaptureTeam, applicationId: string) {
   };
 }
 
+/**
+ * 고른 신청을 조에 더한다. 같은 사람은 신청이 여러 건이어도 한 번만 들어가고,
+ * 조장이 없으면 첫 사람이 조장이 된다.
+ */
+export function addTeamMembers(team: CaptureTeam, selectedIds: string[], applications: CaptureApplication[]) {
+  const studentOf = new Map(applications.map((item) => [item.id, item.studentId]));
+  const seen = new Set(team.applicationIds.map((id) => studentOf.get(id) ?? id));
+  const applicationIds = [...team.applicationIds];
+  for (const id of selectedIds) {
+    const student = studentOf.get(id) ?? id;
+    if (seen.has(student)) continue;
+    seen.add(student);
+    applicationIds.push(id);
+  }
+  return { applicationIds, leaderId: team.leaderId ?? applicationIds[0] ?? null };
+}
+
 /** 공지용 표를 날짜별로 묶는다. 이름만 포함하고, 조장을 맨 위에 둔다. */
 export function teamBoard(teams: CaptureTeam[], applications: CaptureApplication[]) {
   const names = new Map(applications.map((application) => [application.id, application.name]));

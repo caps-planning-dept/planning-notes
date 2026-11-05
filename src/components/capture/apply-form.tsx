@@ -74,7 +74,7 @@ export function ApplyForm({ token, title, dates, activities }: ApplyFormProps) {
     });
     setSubmitting(false);
     if (error) {
-      setSubmitError("신청을 저장하지 못했습니다. 마감 여부를 확인하고 다시 시도해 주세요.");
+      setSubmitError("신청을 저장하지 못했습니다. 입력 내용과 마감 여부를 확인하고 잠시 뒤 다시 시도해 주세요.");
       return;
     }
     setDone(true);
@@ -99,29 +99,29 @@ export function ApplyForm({ token, title, dates, activities }: ApplyFormProps) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor="apply-name">이름</Label>
-            <Input id="apply-name" value={name} aria-invalid={Boolean(errors.name)} onChange={(e) => setName(e.target.value)} />
+            <Input id="apply-name" maxLength={50} value={name} aria-invalid={Boolean(errors.name)} onChange={(e) => setName(e.target.value)} />
             <FieldError message={errors.name} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="apply-student-id">학번</Label>
-            <Input id="apply-student-id" inputMode="numeric" value={studentId} aria-invalid={Boolean(errors.studentId)} onChange={(e) => setStudentId(e.target.value)} />
+            <Input id="apply-student-id" inputMode="numeric" maxLength={12} value={studentId} aria-invalid={Boolean(errors.studentId)} onChange={(e) => setStudentId(e.target.value)} />
             <FieldError message={errors.studentId} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="apply-cohort">기수</Label>
-            <Input id="apply-cohort" placeholder="예: 40.5기" className="placeholder:text-muted-foreground/60" value={cohort} aria-invalid={Boolean(errors.cohort)} onChange={(e) => setCohort(e.target.value)} />
+            <Input id="apply-cohort" maxLength={20} placeholder="예: 40.5기" className="placeholder:text-muted-foreground/60" value={cohort} aria-invalid={Boolean(errors.cohort)} onChange={(e) => setCohort(e.target.value)} />
             <FieldError message={errors.cohort} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="apply-major">전공</Label>
-            <Input id="apply-major" placeholder="예: 컴퓨터AI학부" className="placeholder:text-muted-foreground/60" value={major} aria-invalid={Boolean(errors.major)} onChange={(e) => setMajor(e.target.value)} />
+            <Input id="apply-major" maxLength={100} placeholder="예: 컴퓨터AI학부" className="placeholder:text-muted-foreground/60" value={major} aria-invalid={Boolean(errors.major)} onChange={(e) => setMajor(e.target.value)} />
             <FieldError message={errors.major} />
           </div>
         </div>
 
         <div className="flex flex-col gap-2">
           <Label htmlFor="apply-teammate">함께 조를 하고 싶은 사람 (선택)</Label>
-          <Input id="apply-teammate" value={teammate} onChange={(e) => setTeammate(e.target.value)} />
+          <Input id="apply-teammate" maxLength={100} value={teammate} onChange={(e) => setTeammate(e.target.value)} />
         </div>
 
         <fieldset className="flex flex-col gap-2">
@@ -168,7 +168,7 @@ export function ApplyForm({ token, title, dates, activities }: ApplyFormProps) {
           ))}
           <div className="mt-2 flex flex-col gap-2">
             <Label htmlFor="apply-other">기타</Label>
-            <Input id="apply-other" value={otherActivity} onChange={(e) => setOtherActivity(e.target.value)} />
+            <Input id="apply-other" maxLength={200} value={otherActivity} onChange={(e) => setOtherActivity(e.target.value)} />
           </div>
         </fieldset>
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addTeamMembers,
   assignedDatesByStudent,
   type CaptureApplication,
   type CaptureFilter,
@@ -212,5 +213,23 @@ describe("신청 폼 검사", () => {
   it("학번이 숫자가 아니거나 날짜를 고르지 않으면 해당 항목에 오류를 표시한다", () => {
     const errors = validateApplication({ ...valid, studentId: "abc", dates: [] });
     expect(Object.keys(errors).sort()).toEqual(["dates", "studentId"]);
+  });
+});
+
+describe("조에 사람 더하기", () => {
+  const application = (id: string, studentId: string) =>
+    ({ id, studentId, name: id, cohort: "", major: "", preferredTeammate: "", dates: [], participation: "", drinking: "", activities: [], otherActivity: "", createdAt: "" }) as CaptureApplication;
+  const team = (applicationIds: string[], leaderId: string | null) =>
+    ({ id: "t", eventDate: "2026-12-01", activity: "", applicationIds, leaderId, note: "", createdAt: "" }) as CaptureTeam;
+
+  it("다시 신청한 사람의 새 신청을 같은 조에 또 넣지 않는다", () => {
+    const applications = [application("old", "1"), application("new", "1"), application("other", "2")];
+    expect(addTeamMembers(team(["old"], "old"), ["new", "other"], applications).applicationIds).toEqual(["old", "other"]);
+  });
+
+  it("조장이 없으면 첫 사람이 조장이 되고, 있으면 유지한다", () => {
+    const applications = [application("a", "1"), application("b", "2")];
+    expect(addTeamMembers(team([], null), ["a", "b"], applications).leaderId).toBe("a");
+    expect(addTeamMembers(team(["a"], "a"), ["b"], applications).leaderId).toBe("a");
   });
 });

@@ -36,6 +36,8 @@ type TeamRow = {
   created_at: string;
 };
 
+const ROUND_RETRY_MS = 1000;
+
 function toApplication(row: ApplicationRow): CaptureApplication {
   return {
     id: row.id,
@@ -146,6 +148,13 @@ export function useCapture(tabId: string, isAdmin: boolean) {
     };
   }, [supabase, tabId, fetchRound, fetchApplications, fetchTeams, fetchViewers]);
 
+  // 새 캡처 탭은 저장이 끝나기 전에 화면이 먼저 열리므로, 회차가 보일 때까지 다시 조회한다.
+  useEffect(() => {
+    if (!loaded || round) return;
+    const timer = setInterval(fetchRound, ROUND_RETRY_MS);
+    return () => clearInterval(timer);
+  }, [loaded, round, fetchRound]);
+
   return {
     loaded,
     isAdmin,
@@ -214,13 +223,17 @@ export function useCapture(tabId: string, isAdmin: boolean) {
         .eq("id", teamId)
         .then(({ error: failure }) => report(failure));
     },
+    /** 신청을 지우면 조는 이름 없이 남아 쓸모가 없으므로 함께 지운다. */
     deleteAllApplications() {
       setApplications([]);
-      supabase
-        .from("capture_applications")
-        .delete()
-        .eq("tab_id", tabId)
-        .then(({ error: failure }) => report(failure));
+      setTeams([]);
+      for (const table of ["capture_applications", "capture_teams"] as const) {
+        supabase
+          .from(table)
+          .delete()
+          .eq("tab_id", tabId)
+          .then(({ error: failure }) => report(failure));
+      }
     },
   };
 }

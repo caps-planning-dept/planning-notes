@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Capture } from "@/hooks/use-capture";
 import {
+  addTeamMembers,
   type Applicant,
   assignedDatesByStudent,
   type CaptureApplication,
@@ -81,7 +82,8 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
   const [filter, setFilter] = useState<CaptureFilter>(EMPTY_FILTER);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [chosenDate, setChosenDate] = useState("");
-  const [activity, setActivity] = useState("");
+  // 직접 입력하기 전(null)에는 필터에서 고른 활동을 쓴다.
+  const [activity, setActivity] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [opened, setOpened] = useState<Applicant | null>(null);
   const [imageError, setImageError] = useState("");
@@ -91,16 +93,24 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
   const filtered = useMemo(() => filterApplicants(allApplicants, filter), [allApplicants, filter]);
   const assigned = useMemo(() => assignedDatesByStudent(capture.teams, capture.applications), [capture.teams, capture.applications]);
 
+  // 설정에서 날짜를 지워도 이미 만든 조는 고칠 수 있도록 조의 날짜도 함께 고를 수 있게 한다.
+  const selectableDates = useMemo(
+    () => [...new Set([...dates, ...capture.teams.map((team) => team.eventDate)])].sort(),
+    [dates, capture.teams],
+  );
+
   // 날짜 필터를 하나만 골랐다면 그 날짜를, 직접 고른 날짜가 있으면 그 날짜를 쓴다.
-  const eventDate = dates.includes(chosenDate) ? chosenDate : (filter.dates[0] ?? dates[0] ?? "");
-  const teamActivity = activity || filter.activities.find((item) => item !== OTHER_ACTIVITY) || "";
+  const eventDate = selectableDates.includes(chosenDate) ? chosenDate : (filter.dates[0] ?? selectableDates[0] ?? "");
+  const teamActivity = activity ?? (filter.activities.find((item) => item !== OTHER_ACTIVITY) || "");
 
   const byApplicationId = useMemo(() => {
     const map = new Map<string, CaptureApplication>();
     capture.applications.forEach((item) => map.set(item.id, item));
     return map;
   }, [capture.applications]);
+  // 고른 뒤 신청이 삭제되었을 수 있으므로 지금 남아 있는 신청만 쓴다.
   const selectedPeople = selectedIds.flatMap((id) => byApplicationId.get(id) ?? []);
+  const validSelectedIds = selectedPeople.map((person) => person.id);
   const notApplied = selectedPeople.filter((person) => {
     const submissions = allApplicants.find((item) => item.studentId === person.studentId)?.applications ?? [];
     return !submissions.some((item) => item.dates.includes(eventDate));
@@ -119,8 +129,9 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
   }
 
   function createTeam() {
-    capture.addTeam(eventDate, teamActivity.trim(), selectedIds, note.trim());
+    capture.addTeam(eventDate, teamActivity.trim(), validSelectedIds, note.trim());
     setSelectedIds([]);
+    setActivity(null);
     setNote("");
   }
 
@@ -138,7 +149,7 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
     }
   }
 
-  if (dates.length === 0) {
+  if (selectableDates.length === 0) {
     return <p className="py-10 text-center text-muted-foreground">설정에서 활동 날짜를 먼저 추가해 주세요.</p>;
   }
 
@@ -223,11 +234,11 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
 
       <section aria-label="조 만들기" className="sticky bottom-0 z-10 flex flex-col gap-2 rounded-md border bg-background p-4">
         <div className="flex flex-wrap items-end gap-3">
-          <p className="min-w-16 self-center font-medium" role="status">{selectedIds.length}명 선택</p>
+          <p className="min-w-16 self-center font-medium" role="status">{validSelectedIds.length}명 선택</p>
           <label className="flex flex-col gap-1 text-sm font-medium">
             날짜
             <select className="h-9 rounded-md border bg-background px-2 font-normal" value={eventDate} onChange={(e) => setChosenDate(e.target.value)}>
-              {dates.map((item) => (
+              {selectableDates.map((item) => (
                 <option key={item} value={item}>{formatRoundDate(item)}</option>
               ))}
             </select>
@@ -239,6 +250,7 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
               placeholder="예: 보드게임"
               className="h-9 rounded-md border bg-background px-2 font-normal placeholder:text-muted-foreground/70"
               value={teamActivity}
+              maxLength={100}
               onChange={(e) => setActivity(e.target.value)}
             />
             <datalist id="capture-activities">
@@ -257,13 +269,13 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
           </label>
           <Button
             className="chamfer rounded-none"
-            disabled={selectedIds.length === 0 || !teamActivity.trim()}
+            disabled={validSelectedIds.length === 0 || !teamActivity.trim()}
             onClick={createTeam}
           >
             <UserPlus data-icon="inline-start" />
             조 편성하기
           </Button>
-          {selectedIds.length > 0 && (
+          {validSelectedIds.length > 0 && (
             <Button variant="ghost" onClick={() => setSelectedIds([])}>선택 해제</Button>
           )}
         </div>
@@ -307,7 +319,7 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
                       >
                         <button
                           aria-pressed={isLeader}
-                          aria-label={isLeader ? `${nameOf(id)}, 현재 조장` : `${nameOf(id)}을 조장으로 지정`}
+                          aria-label={isLeader ? `${nameOf(id)}, 현재 조장` : `${nameOf(id)} 님을 조장으로 지정`}
                           title={isLeader ? "현재 조장" : "눌러서 조장으로 지정"}
                           className="focus-inset flex min-h-6 items-center gap-1 rounded-full px-2"
                           onClick={() => capture.setTeamMembers(team.id, team.applicationIds, id)}
@@ -329,18 +341,18 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
                     );
                   })}
                 </ul>
-                {selectedIds.length > 0 && (
+                {validSelectedIds.length > 0 && (
                   <Button
                     variant="outline"
                     className="w-fit"
                     onClick={() => {
-                      const applicationIds = [...new Set([...team.applicationIds, ...selectedIds])];
-                      capture.setTeamMembers(team.id, applicationIds, team.leaderId ?? applicationIds[0] ?? null);
+                      const next = addTeamMembers(team, validSelectedIds, capture.applications);
+                      capture.setTeamMembers(team.id, next.applicationIds, next.leaderId);
                       setSelectedIds([]);
                     }}
                   >
                     <UserPlus data-icon="inline-start" />
-                    선택한 {selectedIds.length}명 넣기
+                    선택한 {validSelectedIds.length}명 넣기
                   </Button>
                 )}
               </article>

@@ -30,9 +30,10 @@ function Notice({ title, body }: { title: string; body: string }) {
 export default async function ApplyPage({ params }: PageProps<"/apply/[token]">) {
   const { token } = await params;
   const supabase = await createClient();
-  const { data } = await supabase.rpc("get_capture_form", { token });
+  const { data, error } = await supabase.rpc("get_capture_form", { token });
   const form = data as PublicForm | null;
 
+  if (error) return <Notice title="신청 폼을 불러오지 못했습니다" body="잠시 뒤 다시 시도해 주세요." />;
   if (!form) return <Notice title="신청 링크를 찾을 수 없습니다" body="기획부에 올바른 링크를 문의해 주세요." />;
   if (!form.isOpen) return <Notice title="신청을 받고 있지 않습니다" body="신청 기간을 기획부에 문의해 주세요." />;
 

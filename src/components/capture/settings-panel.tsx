@@ -187,7 +187,7 @@ export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) 
         <DialogContent>
           <DialogHeader>
             <DialogTitle>신청 내용을 모두 삭제할까요?</DialogTitle>
-            <DialogDescription>삭제하면 되돌릴 수 없습니다. 조 편성 표의 이름도 함께 사라집니다.</DialogDescription>
+            <DialogDescription>삭제하면 되돌릴 수 없습니다. 만든 조도 함께 삭제됩니다.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirming(false)}>취소</Button>

@@ -196,9 +196,9 @@ function useIsWide() {
   return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => false);
 }
 
-/** 파일 첨부는 다음 버전 기능이므로 답글에서도 끈다. */
+/** 파일 첨부와 알림은 다음 버전 기능이므로 답글에서도 끈다. */
 function ReplyThread(props: ThreadProps) {
-  return <Thread {...props} showAttachments={false} />;
+  return <Thread {...props} showAttachments={false} showSubscription={false} />;
 }
 
 const THREAD_COMPONENTS = { Thread: ReplyThread };
