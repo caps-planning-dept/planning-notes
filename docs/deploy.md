@@ -13,20 +13,21 @@
 
 ## 2. Vercel
 
-- [ ] 저장소를 연결해 프로젝트 만들기 (Next.js 자동 인식, 별도 설정 파일 없음)
-- [ ] 환경 변수 3개 등록: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `LIVEBLOCKS_SECRET_KEY`
-- [ ] 첫 배포 후 주소 확정
+- [x] 저장소를 연결해 프로젝트 만들기 (Next.js 자동 인식, 별도 설정 파일 없음)
+- [x] 환경 변수 3개 등록: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `LIVEBLOCKS_SECRET_KEY`
+- [x] 첫 배포 후 주소 확정: `https://caps-planning.vercel.app`
 
 ## 3. 로그인
 
-- [ ] Supabase Authentication의 Site URL을 배포 주소로 변경
-- [ ] Supabase Redirect URLs에 `https://배포주소/auth/callback` 추가
+- [x] Supabase Authentication의 Site URL을 배포 주소로 변경
+- [x] Supabase Redirect URLs에 `https://caps-planning.vercel.app/**` 추가 (로그인 후 돌아갈 경로가 붙으므로 `/**` 형태)
+- [x] 배포 주소에서 관리자 Google 로그인 확인
 - [ ] Google 콘솔의 승인된 도메인과 홈페이지 주소 입력
 - [ ] 멤버가 테스트 사용자 없이 들어오도록 Google 앱 게시 (개인정보처리방침 주소 필요)
 
 ## 4. 운영 서비스
 
-- [ ] Liveblocks 운영용 프로젝트를 만들고 `LIVEBLOCKS_SECRET_KEY` 교체
+- [x] Liveblocks 운영용 프로젝트를 만들고 `LIVEBLOCKS_SECRET_KEY` 교체 (Vercel)
 - [ ] Supabase MCP를 읽기 전용으로 변경
 - [x] 자동 백업 코드 작성 (`scripts/backup.mjs`)
 - [x] 백업 저장소 설정과 첫 실행 ([backup.md](backup.md))
@@ -38,15 +39,17 @@
 
 ## 5. 데이터 정리
 
-- [ ] 시험 탭 `두 계정 시험` 삭제, 휴지통 비우기
-- [ ] 시험 문의 삭제
-- [ ] `캡처 예시`, `캡처 시즌2`의 처리 결정 (가짜 신청 포함 여부 확인)
-- [ ] 쓰지 않는 초대 링크 취소, 두 번째 계정 내보내기
+- [x] 시험 탭과 가짜 캡처 회차를 휴지통으로 이동 (30일 뒤 자동 삭제 예정, 실제 동작은 미확인)
+- [x] 쓰지 않는 초대 링크 취소
+- [ ] 일정 `캡처2`와 시험 문의를 사용자가 직접 삭제
+- [ ] 쓰기 권한 시험 뒤 두 번째 계정 내보내기
 
 ## 6. 배포 후 확인
 
-- [ ] 배포 주소에서 Google 로그인과 초대 가입
+- [x] 보안 헤더 3종과 HTTPS 강제 적용 확인
+- [ ] 일반 멤버의 쓰기 시도가 막히는지 시험
+- [ ] 배포 주소에서 초대 가입
 - [ ] 로그인하지 않은 상태로 공개 신청 폼 제출
 - [ ] 동시 편집과 답글
 - [ ] 실제 휴대폰 (카카오톡 내부 브라우저 안내 포함)
-- [ ] 보안 헤더 확인, CSP 적용 여부 시험
+- [ ] CSP 적용 여부 시험
