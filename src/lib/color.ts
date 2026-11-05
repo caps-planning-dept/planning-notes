@@ -7,6 +7,12 @@ function luminance(hex: string): number {
   return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
 }
 
+/** 두 색의 대비를 돌려준다. */
+export function contrastRatio(a: string, b: string): number {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
 const MIN_WHITE_CONTRAST = 3;
 
 /** 흰 글자를 우선하고, 흰 글자의 대비가 3:1보다 낮은 밝은 색에서만 검은 글자를 쓴다. */

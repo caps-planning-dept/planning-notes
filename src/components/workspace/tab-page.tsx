@@ -76,6 +76,7 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
         <NoteEditor
           tabId={tab.id}
           content={workspace.notes[tab.id]}
+          members={workspace.members}
           onChange={(content) => workspace.saveNote(tab.id, content)}
         />
       )}

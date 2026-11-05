@@ -13,8 +13,38 @@ import {
 const DAY = 24 * 60 * 60 * 1000;
 
 function tab(id: string, parentId: string | null, extra: Partial<Tab> = {}): Tab {
-  return { id, parentId, title: id, template: "note", color: null, deletedAt: null, ...extra };
+  return { id, parentId, title: id, template: "note", color: null, deletedAt: null, createdAt: 0, pinnedAt: null, ...extra };
 }
+
+const ids = (tabs: Tab[]) => tabs.map((item) => item.id);
+
+describe("탭 순서", () => {
+  it("최상위 탭은 최근에 만든 탭이 맨 위에 온다", () => {
+    const tabs = [tab("old", null, { createdAt: 1 }), tab("new", null, { createdAt: 3 }), tab("mid", null, { createdAt: 2 })];
+    expect(ids(visibleChildren(tabs, null))).toEqual(["new", "mid", "old"]);
+  });
+
+  it("고정한 탭은 더 최근에 만든 탭보다 위에 온다", () => {
+    const tabs = [tab("pinned", null, { createdAt: 1, pinnedAt: 10 }), tab("new", null, { createdAt: 3 })];
+    expect(ids(visibleChildren(tabs, null))).toEqual(["pinned", "new"]);
+  });
+
+  it("고정한 탭끼리는 최근에 고정한 탭이 위에 온다", () => {
+    const tabs = [tab("first", null, { pinnedAt: 10 }), tab("second", null, { pinnedAt: 20 })];
+    expect(ids(visibleChildren(tabs, null))).toEqual(["second", "first"]);
+  });
+
+  it("하위 탭은 먼저 만든 탭이 위에 남는다", () => {
+    const tabs = [tab("root", null), tab("a", "root", { createdAt: 1 }), tab("b", "root", { createdAt: 2 })];
+    expect(ids(visibleChildren(tabs, "root"))).toEqual(["a", "b"]);
+  });
+
+  it("원본 목록의 순서를 바꾸지 않는다", () => {
+    const tabs = [tab("old", null, { createdAt: 1 }), tab("new", null, { createdAt: 2 })];
+    visibleChildren(tabs, null);
+    expect(ids(tabs)).toEqual(["old", "new"]);
+  });
+});
 
 describe("탭 색상", () => {
   it("색을 정하지 않은 하위 탭은 가장 가까운 상위 탭의 색을 따른다", () => {

@@ -7,13 +7,25 @@ export type Tab = {
   template: TabTemplate;
   color: string | null;
   deletedAt: number | null;
+  createdAt: number;
+  pinnedAt: number | null;
 };
 
 export const DEFAULT_TAB_COLOR = "#2b2a27";
 export const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** 고정한 탭을 최근에 고정한 순서로 먼저 두고, 나머지는 최근에 만든 순서로 둔다. */
+function compareRootTabs(a: Tab, b: Tab): number {
+  if (a.pinnedAt !== null || b.pinnedAt !== null) {
+    return (b.pinnedAt ?? -Infinity) - (a.pinnedAt ?? -Infinity);
+  }
+  return b.createdAt - a.createdAt;
+}
+
+/** 최상위 탭은 고정과 최신순으로, 하위 탭은 먼저 만든 순서로 돌려준다. */
 export function visibleChildren(tabs: Tab[], parentId: string | null): Tab[] {
-  return tabs.filter((tab) => tab.parentId === parentId && tab.deletedAt === null);
+  const children = tabs.filter((tab) => tab.parentId === parentId && tab.deletedAt === null);
+  return parentId === null ? children.sort(compareRootTabs) : children;
 }
 
 /** 탭의 색을 돌려준다. 색이 없으면 가장 가까운 상위 탭의 색을 따른다. */

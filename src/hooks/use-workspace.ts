@@ -4,7 +4,12 @@ import type { CalendarEvent } from "@/lib/calendar";
 import { createClient } from "@/lib/supabase/client";
 import { moveToTrash, restoreFromTrash, type Tab, type TabTemplate, visibleChildren } from "@/lib/workspace";
 
-export type View = { type: "tab"; id: string } | { type: "trash" } | { type: "members" } | { type: "empty" };
+export type View =
+  | { type: "tab"; id: string }
+  | { type: "trash" }
+  | { type: "members" }
+  | { type: "inquiries" }
+  | { type: "empty" };
 
 export type NewTabInput = {
   parentId: string | null;
@@ -30,6 +35,8 @@ type TabRow = {
   template: TabTemplate;
   color: string | null;
   deleted_at: string | null;
+  created_at: string;
+  pinned_at: string | null;
 };
 
 type EventRow = {
@@ -56,6 +63,8 @@ function toTab(row: TabRow): Tab {
     template: row.template,
     color: row.color,
     deletedAt: row.deleted_at ? new Date(row.deleted_at).getTime() : null,
+    createdAt: new Date(row.created_at).getTime(),
+    pinnedAt: row.pinned_at ? new Date(row.pinned_at).getTime() : null,
   };
 }
 
@@ -108,7 +117,7 @@ export function useWorkspace(workspaceId: string, userId: string) {
   const fetchTabs = useCallback(async () => {
     const { data, error } = await supabase
       .from("tabs")
-      .select("id, parent_id, title, template, color, deleted_at")
+      .select("id, parent_id, title, template, color, deleted_at, created_at, pinned_at")
       .eq("workspace_id", workspaceId)
       .order("created_at");
     if (error) return report(error);
@@ -235,7 +244,7 @@ export function useWorkspace(workspaceId: string, userId: string) {
     syncError,
     createTab(input: NewTabInput) {
       const id = crypto.randomUUID();
-      setTabs((current) => [...current, { ...input, id, deletedAt: null }]);
+      setTabs((current) => [...current, { ...input, id, deletedAt: null, createdAt: Date.now(), pinnedAt: null }]);
       setView({ type: "tab", id });
       supabase
         .from("tabs")
@@ -255,6 +264,25 @@ export function useWorkspace(workspaceId: string, userId: string) {
         .from("tabs")
         .update(change)
         .eq("id", id)
+        .then(({ error }) => report(error));
+    },
+    setTabPinned(id: string, pinned: boolean) {
+      const now = Date.now();
+      setTabs((current) => current.map((tab) => (tab.id === id ? { ...tab, pinnedAt: pinned ? now : null } : tab)));
+      supabase
+        .from("tabs")
+        .update({ pinned_at: pinned ? new Date(now).toISOString() : null })
+        .eq("id", id)
+        .then(({ error }) => report(error));
+    },
+    updateDisplayName(name: string) {
+      setMembers((current) =>
+        current.map((member) => (member.userId === userId ? { ...member, displayName: name } : member)),
+      );
+      supabase
+        .from("profiles")
+        .update({ display_name: name })
+        .eq("id", userId)
         .then(({ error }) => report(error));
     },
     trashTab(id: string) {

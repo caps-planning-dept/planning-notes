@@ -164,6 +164,18 @@
   margin-top: 0.6em;
 }
 
+.note-content mark {
+  border-radius: 2px;
+  padding: 0 2px;
+  color: inherit;
+}
+
+/* 답글이 달린 글에도 직접 고른 글씨 색과 굵기를 유지한다. */
+.note-content .lb-tiptap-thread-mark {
+  color: inherit;
+  font-weight: inherit;
+}
+
 .note-content h2 {
   margin-top: 1.4em;
   font-size: 1.4rem;

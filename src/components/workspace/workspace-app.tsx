@@ -4,6 +4,7 @@ import { Menu, Plus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { InquiriesView } from "./inquiries-view";
 import { MembersView } from "./members-view";
 import { NewTabDialog } from "./new-tab-dialog";
 import { Sidebar } from "./sidebar";
@@ -25,6 +26,7 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
     <div className="flex h-full min-h-0">
       <Sidebar
         workspace={workspace}
+        userId={userId}
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         onNewTab={setNewTabParent}
@@ -45,6 +47,9 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
         {workspace.loaded && view.type === "trash" && <TrashView workspace={workspace} />}
         {workspace.loaded && view.type === "members" && (
           <MembersView workspace={workspace} userId={userId} isAdmin={isAdmin} />
+        )}
+        {workspace.loaded && view.type === "inquiries" && (
+          <InquiriesView workspaceId={workspaceId} members={workspace.members} isAdmin={isAdmin} />
         )}
         {workspace.loaded && activeTab && (
           <TabPage

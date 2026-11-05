@@ -1,7 +1,8 @@
 "use client";
 
-import { Plus, Trash2, Users, X } from "lucide-react";
+import { MessageSquareText, Pin, PinOff, Plus, Trash2, UserPen, Users, X } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Button } from "@/components/ui/button";
 import type { Workspace } from "@/hooks/use-workspace";
@@ -9,19 +10,24 @@ import { readableTextOn } from "@/lib/color";
 import { cn } from "@/lib/utils";
 import { resolveTabColor, type Tab, trashedRoots, visibleChildren } from "@/lib/workspace";
 import logo from "../../../assets/logo/caps-lockup-on-white.png";
+import { NameDialog } from "./name-dialog";
 import { TabIcon } from "./tab-icon";
 
 type SidebarProps = {
   workspace: Workspace;
+  userId: string;
   open: boolean;
   onClose: () => void;
   onNewTab: (parentId: string | null) => void;
 };
 
-export function Sidebar({ workspace, open, onClose, onNewTab }: SidebarProps) {
+export function Sidebar({ workspace, userId, open, onClose, onNewTab }: SidebarProps) {
+  const [nameOpen, setNameOpen] = useState(false);
   const trashCount = trashedRoots(workspace.tabs).length;
   const trashActive = workspace.view.type === "trash";
   const membersActive = workspace.view.type === "members";
+  const inquiriesActive = workspace.view.type === "inquiries";
+  const myName = workspace.members.find((member) => member.userId === userId)?.displayName ?? "";
 
   return (
     <>
@@ -74,8 +80,35 @@ export function Sidebar({ workspace, open, onClose, onNewTab }: SidebarProps) {
           <Trash2 data-icon="inline-start" />
           휴지통{trashCount > 0 && ` (${trashCount})`}
         </Button>
+        <Button
+          variant="ghost"
+          aria-current={inquiriesActive ? "page" : undefined}
+          className={cn("justify-start", inquiriesActive && "bg-muted")}
+          onClick={() => {
+            workspace.setView({ type: "inquiries" });
+            onClose();
+          }}
+        >
+          <MessageSquareText data-icon="inline-start" />
+          문의
+        </Button>
+        <Button
+          variant="ghost"
+          aria-label={`이름 설정, 현재 이름 ${myName}`}
+          className="justify-start"
+          onClick={() => setNameOpen(true)}
+        >
+          <UserPen data-icon="inline-start" />
+          <span className="truncate">{myName || "이름 설정"}</span>
+        </Button>
         <SignOutButton />
       </aside>
+      <NameDialog
+        open={nameOpen}
+        name={myName}
+        onClose={() => setNameOpen(false)}
+        onSave={workspace.updateDisplayName}
+      />
     </>
   );
 }
@@ -103,6 +136,7 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
   const { view } = workspace;
   const active = view.type === "tab" && view.id === tab.id;
   const color = resolveTabColor(workspace.tabs, tab.id);
+  const pinned = tab.pinnedAt !== null;
 
   return (
     <div
@@ -122,7 +156,19 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
       >
         <TabIcon template={tab.template} className="size-4 shrink-0" style={active ? undefined : { color }} aria-hidden />
         <span className="truncate">{tab.title || "제목 없음"}</span>
+        {pinned && <Pin className="size-3 shrink-0 group-focus-within:hidden group-hover:hidden" aria-label="고정됨" />}
       </button>
+      {depth === 0 && (
+        <button
+          aria-label={`${tab.title || "제목 없음"} ${pinned ? "고정 해제" : "맨 위에 고정"}`}
+          aria-pressed={pinned}
+          title={pinned ? "고정 해제" : "맨 위에 고정"}
+          className="focus-inset flex size-9 shrink-0 items-center justify-center opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 md:opacity-0"
+          onClick={() => workspace.setTabPinned(tab.id, !pinned)}
+        >
+          {pinned ? <PinOff className="size-4" aria-hidden /> : <Pin className="size-4" aria-hidden />}
+        </button>
+      )}
       <button
         aria-label={`${tab.title || "제목 없음"} 안에 하위 탭 만들기`}
         className="focus-inset flex size-9 shrink-0 items-center justify-center opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 md:opacity-0"
