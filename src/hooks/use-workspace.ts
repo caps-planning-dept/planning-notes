@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarEvent } from "@/lib/calendar";
 import { createClient } from "@/lib/supabase/client";
 import {
+  moveTab,
   moveToTrash,
   removeWithDescendants,
   restoreFromTrash,
@@ -293,6 +294,27 @@ export function useWorkspace(workspaceId: string, userId: string) {
         .update({ pinned_at: pinned ? new Date(now).toISOString() : null })
         .eq("id", id)
         .then(({ error }) => report(error));
+    },
+    /** 탭을 다른 상위 탭 아래나 최상위(parentId = null)로 옮긴다. 하위 탭도 함께 따라간다. */
+    moveTab(id: string, parentId: string | null) {
+      const before = tabs.find((tab) => tab.id === id);
+      const moved = moveTab(tabs, id, parentId).find((tab) => tab.id === id);
+      if (!before || !moved || moved === before) return;
+      setTabs((current) => moveTab(current, id, parentId));
+      supabase
+        .from("tabs")
+        .update({
+          parent_id: moved.parentId,
+          pinned_at: moved.pinnedAt === null ? null : new Date(moved.pinnedAt).toISOString(),
+        })
+        .eq("id", id)
+        .then(({ error }) => {
+          if (!error) return;
+          setTabs((current) =>
+            current.map((tab) => (tab.id === id ? { ...tab, parentId: before.parentId, pinnedAt: before.pinnedAt } : tab)),
+          );
+          report(error);
+        });
     },
     updateDisplayName(name: string) {
       // 노트는 이름이 바뀌면 다시 입장해 DB의 이름을 받으므로, 저장이 끝난 뒤에 화면을 바꾼다.

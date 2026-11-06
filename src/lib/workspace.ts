@@ -118,3 +118,27 @@ export function trashedRoots(tabs: Tab[]): Tab[] {
     return parent?.deletedAt !== tab.deletedAt;
   });
 }
+
+/**
+ * 탭을 옮길 수 있는 상위 탭 후보를 사이드바 순서대로 돌려준다.
+ * 자기 자신과 자기 하위 탭 아래로는 옮길 수 없다. 그러면 탭이 서로를 품는 고리가 생긴다.
+ */
+export function moveTargets(tabs: Tab[], id: string): { tab: Tab; depth: number }[] {
+  const blocked = new Set([id, ...descendantIds(tabs, id)]);
+  const walk = (parentId: string | null, depth: number): { tab: Tab; depth: number }[] =>
+    visibleChildren(tabs, parentId)
+      .filter((tab) => !blocked.has(tab.id))
+      .flatMap((tab) => [{ tab, depth }, ...walk(tab.id, depth + 1)]);
+  return walk(null, 0);
+}
+
+/**
+ * 탭을 다른 상위 탭 아래나 최상위로 옮긴다. 하위 탭도 함께 따라간다.
+ * 고정은 최상위 탭에만 쓰이므로 하위 탭이 되면 고정을 푼다. 옮길 수 없는 곳이면 그대로 돌려준다.
+ */
+export function moveTab(tabs: Tab[], id: string, parentId: string | null): Tab[] {
+  if (parentId !== null && !moveTargets(tabs, id).some(({ tab }) => tab.id === parentId)) return tabs;
+  return tabs.map((tab) =>
+    tab.id === id ? { ...tab, parentId, pinnedAt: parentId === null ? tab.pinnedAt : null } : tab,
+  );
+}

@@ -158,6 +158,11 @@
   min-height: 16rem;
   font-size: 1rem;
   line-height: 1.8;
+  /* 편집기가 요구하는 공백 처리. 없으면 글 끝의 공백과 연속 공백이 사라진다. */
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  overflow-wrap: break-word;
+  font-variant-ligatures: none;
 }
 
 .note-content > * + * {
@@ -210,4 +215,18 @@
   height: 0;
   color: var(--muted-foreground);
   pointer-events: none;
+}
+.note-content a {
+  color: #1971c2;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* 다른 탭으로 가는 연결은 일반 링크와 구분되게 앞에 화살표를 붙인다. */
+.note-content a[href^="#tab-"]::before {
+  content: "↗";
+  display: inline-block;
+  margin-right: 0.15em;
+  font-size: 0.85em;
 }

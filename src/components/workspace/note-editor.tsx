@@ -16,6 +16,7 @@ import { AnchoredThreads, FloatingComposer, FloatingThreads, useLiveblocksExtens
 import { LiveblocksUiConfig, Thread, type ThreadProps } from "@liveblocks/react-ui";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
+import { NodeSelection } from "@tiptap/pm/state";
 import { Color, FontFamily, TextStyle } from "@tiptap/extension-text-style";
 import { EditorContent, type Editor, type JSONContent, useEditor, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -26,15 +27,20 @@ import {
   Eraser,
   Heading2,
   Highlighter,
+  ImagePlus,
   Italic,
+  Link2,
+  Link2Off,
   List,
   ListOrdered,
   MessageSquarePlus,
+  Paperclip,
   Quote,
   Underline,
   type LucideIcon,
 } from "lucide-react";
 import {
+  type ChangeEvent,
   createContext,
   useCallback,
   useContext,
@@ -48,14 +54,22 @@ import { Button } from "@/components/ui/button";
 import type { Member } from "@/hooks/use-workspace";
 import { cursorColor, noteRoomId } from "@/lib/collaboration";
 import { HIGHLIGHT_COLORS, NOTE_FONTS, type NoteColor, TEXT_COLORS } from "@/lib/note-format";
+import { isWebHref, tabIdFromHref, tabLinkHref } from "@/lib/note-links";
 import { cn } from "@/lib/utils";
+import { resolveTabColor, type Tab } from "@/lib/workspace";
+import { insertNoteFiles, NoteFile, NoteImage } from "./note-attachments";
+import { TabIcon } from "./tab-icon";
 
 type NoteEditorProps = {
   tabId: string;
   userId: string;
   content: JSONContent | undefined;
   members: Member[];
+  /** 탭 연결 목록에 보여 줄 탭들 */
+  tabs: Tab[];
   onChange: (content: JSONContent) => void;
+  /** 연결된 탭으로 이동한다. 탭이 휴지통에 있거나 없으면 false를 돌려준다. */
+  onOpenTab: (tabId: string) => boolean;
 };
 
 const COMMENT_TEXT = {
@@ -96,7 +110,10 @@ async function authorize(room?: string) {
 
 const MembersContext = createContext<Member[]>([]);
 
-export function NoteEditor({ tabId, userId, content, members, onChange }: NoteEditorProps) {
+type NoteTabs = { tabId: string; tabs: Tab[]; openTab: (tabId: string) => boolean };
+const NoteTabsContext = createContext<NoteTabs>({ tabId: "", tabs: [], openTab: () => false });
+
+export function NoteEditor({ tabId, userId, content, members, tabs, onChange, onOpenTab }: NoteEditorProps) {
   // 답글 이름을 다시 찾기 전에 최신 목록이 준비되도록 화면 반영 직전에 바꾼다.
   const membersRef = useRef(members);
   useLayoutEffect(() => {
@@ -118,10 +135,12 @@ export function NoteEditor({ tabId, userId, content, members, onChange }: NoteEd
     <LiveblocksProvider key={myName} authEndpoint={authorize} resolveUsers={resolveUsers}>
       <LiveblocksUiConfig overrides={COMMENT_TEXT}>
         <MembersContext.Provider value={members}>
-          <ReplyNameSync members={members} />
-          <RoomProvider id={noteRoomId(tabId)}>
-            <NoteRoomContent content={content} onChange={onChange} />
-          </RoomProvider>
+          <NoteTabsContext.Provider value={{ tabId, tabs, openTab: onOpenTab }}>
+            <ReplyNameSync members={members} />
+            <RoomProvider id={noteRoomId(tabId)}>
+              <NoteRoomContent content={content} onChange={onChange} />
+            </RoomProvider>
+          </NoteTabsContext.Provider>
         </MembersContext.Provider>
       </LiveblocksUiConfig>
     </LiveblocksProvider>
@@ -163,8 +182,24 @@ function NoteRoomContent({ content, onChange }: NoteContentProps) {
   );
 }
 
+const NOTICE_MS = 6000;
+
+type Upload = (files: File[], position?: number) => void;
+
 function CollaborativeEditor({ content, onChange }: NoteContentProps) {
   const [initialContent] = useState(content);
+  const noteTabs = useContext(NoteTabsContext);
+  const [notice, setNotice] = useState("");
+  const [uploading, setUploading] = useState(0);
+  // 편집기 설정은 처음 한 번만 만들어지므로, 그 안에서 쓰는 최신 값은 ref로 읽는다.
+  const latest = useRef<{ noteTabs: NoteTabs; upload: Upload }>({ noteTabs, upload: () => {} });
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   const liveblocks = useLiveblocksExtension({
     initialContent,
     comments: true,
@@ -174,7 +209,10 @@ function CollaborativeEditor({ content, onChange }: NoteContentProps) {
     immediatelyRender: false,
     extensions: [
       liveblocks,
-      StarterKit.configure({ undoRedo: false }),
+      // 링크는 아래 handleClick에서 직접 연다. 탭 연결은 새 창 대신 앱 안에서 이동해야 한다.
+      StarterKit.configure({ undoRedo: false, link: { openOnClick: false } }),
+      NoteImage,
+      NoteFile,
       TextStyle,
       Color,
       FontFamily,
@@ -187,8 +225,62 @@ function CollaborativeEditor({ content, onChange }: NoteContentProps) {
     },
     editorProps: {
       attributes: { "aria-label": "노트 내용", class: "note-content outline-none" },
+      handleClick: (view, _pos, event) => {
+        if (event.button !== 0) return false;
+        const anchor = (event.target as HTMLElement | null)?.closest("a");
+        if (!anchor || !view.dom.contains(anchor)) return false;
+        const href = anchor.getAttribute("href");
+        const linkedTab = tabIdFromHref(href);
+        if (linkedTab) {
+          event.preventDefault();
+          if (!latest.current.noteTabs.openTab(linkedTab)) {
+            setNotice("연결된 탭이 휴지통에 있거나 지워져서 열 수 없습니다.");
+          }
+          return true;
+        }
+        if (isWebHref(href)) {
+          event.preventDefault();
+          window.open(href, "_blank", "noopener,noreferrer");
+          return true;
+        }
+        return false;
+      },
+      handlePaste: (_view, event) => {
+        const data = event.clipboardData;
+        // 글과 함께 복사된 사진(웹 페이지 등)은 글 붙여넣기로 두고, 사진만 복사했을 때 올린다.
+        if (!data || data.files.length === 0 || data.getData("text/plain")) return false;
+        event.preventDefault();
+        latest.current.upload([...data.files]);
+        return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        const files = event.dataTransfer?.files;
+        if (moved || !files || files.length === 0) return false;
+        event.preventDefault();
+        const position = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
+        latest.current.upload([...files], position);
+        return true;
+      },
     },
   });
+
+  const upload = useCallback(
+    async (files: File[], position?: number) => {
+      if (!editor || files.length === 0) return;
+      setUploading((count) => count + files.length);
+      try {
+        const problem = await insertNoteFiles(editor, noteTabs.tabId, files, position);
+        if (problem) setNotice(problem);
+      } finally {
+        setUploading((count) => count - files.length);
+      }
+    },
+    [editor, noteTabs.tabId],
+  );
+
+  useLayoutEffect(() => {
+    latest.current = { noteTabs, upload };
+  }, [noteTabs, upload]);
 
   const wide = useIsWide();
 
@@ -199,7 +291,14 @@ function CollaborativeEditor({ content, onChange }: NoteContentProps) {
         wide ? "max-w-260 grid-cols-[minmax(0,45rem)_17.5rem]" : "max-w-180 grid-cols-[minmax(0,1fr)]",
       )}
     >
-      {editor && <Toolbar editor={editor} />}
+      {editor && (
+        <Toolbar
+          editor={editor}
+          notice={notice || (uploading > 0 ? `파일 ${uploading}개를 올리는 중입니다` : "")}
+          onUpload={upload}
+          onNotice={setNotice}
+        />
+      )}
       {wide && <div />}
       <EditorContent editor={editor} className="min-w-0" />
       {editor && (
@@ -267,7 +366,10 @@ function ReplyBubble({ editor }: { editor: Editor }) {
       className="z-30"
       // 첫 줄에서 위쪽 도구 막대를 가리지 않도록, 본문 위쪽에 자리가 없으면 아래로 띄운다.
       options={{ placement: "top", flip: { boundary: editor.view.dom } }}
-      shouldShow={({ editor: current, state }) => !state.selection.empty && current.isEditable}
+      // 사진이나 파일 칸을 골랐을 때는 답글 버튼을 띄우지 않는다.
+      shouldShow={({ editor: current, state }) =>
+        !state.selection.empty && !(state.selection instanceof NodeSelection) && current.isEditable
+      }
     >
       <Button
         variant="outline"
@@ -375,7 +477,14 @@ function ConnectionStatus() {
   return <>{names.slice(0, 2).join(", ")}{names.length > 2 && ` 외 ${names.length - 2}명`} 함께 편집 중</>;
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+type ToolbarProps = {
+  editor: Editor;
+  notice: string;
+  onUpload: (files: File[]) => void;
+  onNotice: (message: string) => void;
+};
+
+function Toolbar({ editor, notice, onUpload, onNotice }: ToolbarProps) {
   const state = useEditorState({
     editor,
     selector: ({ editor: current }) => ({
@@ -389,6 +498,7 @@ function Toolbar({ editor }: { editor: Editor }) {
       bullet: current.isActive("bulletList"),
       ordered: current.isActive("orderedList"),
       quote: current.isActive("blockquote"),
+      link: current.isActive("link"),
     }),
   });
   const chain = () => editor.chain().focus();
@@ -432,9 +542,158 @@ function Toolbar({ editor }: { editor: Editor }) {
       <Tool label="글머리 목록" icon={List} active={state.bullet} run={() => chain().toggleBulletList().run()} />
       <Tool label="번호 목록" icon={ListOrdered} active={state.ordered} run={() => chain().toggleOrderedList().run()} />
       <Tool label="인용" icon={Quote} active={state.quote} run={() => chain().toggleBlockquote().run()} />
-      <span role="status" className="ml-auto text-sm text-muted-foreground">
-        <ConnectionStatus />
+      <TabLinkMenu editor={editor} active={state.link} onNotice={onNotice} />
+      <FilePickerTool label="사진 넣기" icon={ImagePlus} accept="image/*" onPick={onUpload} />
+      <FilePickerTool label="파일 첨부" icon={Paperclip} onPick={onUpload} />
+      <span role="status" className={cn("ml-auto text-sm", notice ? "text-foreground" : "text-muted-foreground")}>
+        {notice || <ConnectionStatus />}
       </span>
     </div>
+  );
+}
+
+type FilePickerToolProps = {
+  label: string;
+  icon: LucideIcon;
+  accept?: string;
+  onPick: (files: File[]) => void;
+};
+
+function FilePickerTool({ label, icon: Icon, accept, onPick }: FilePickerToolProps) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <Button variant="ghost" size="icon" aria-label={label} title={label} onClick={() => input.current?.click()}>
+        <Icon />
+      </Button>
+      <input
+        ref={input}
+        type="file"
+        multiple
+        accept={accept}
+        tabIndex={-1}
+        aria-hidden
+        className="hidden"
+        onChange={(event: ChangeEvent<HTMLInputElement>) => {
+          const files = [...(event.target.files ?? [])];
+          // 같은 파일을 다시 고를 수 있게 비운다.
+          event.target.value = "";
+          onPick(files);
+        }}
+      />
+    </>
+  );
+}
+
+type TabLinkMenuProps = { editor: Editor; active: boolean; onNotice: (message: string) => void };
+
+/** 선택한 글자를 다른 탭으로 가는 연결로 만든다. 글자를 고르지 않았으면 탭 이름을 넣는다. */
+function TabLinkMenu({ editor, active, onNotice }: TabLinkMenuProps) {
+  const { tabId, tabs } = useContext(NoteTabsContext);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const keyword = query.trim().toLowerCase();
+  const choices = tabs
+    .filter((tab) => tab.deletedAt === null && tab.id !== tabId)
+    .filter((tab) => !keyword || (tab.title || "제목 없음").toLowerCase().includes(keyword))
+    .sort((a, b) => (a.title || "").localeCompare(b.title || "", "ko"));
+
+  function link(target: Tab) {
+    const href = tabLinkHref(target.id);
+    const name = target.title || "제목 없음";
+    if (editor.state.selection.empty && !active) {
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: "text", text: name, marks: [{ type: "link", attrs: { href, target: null } }] })
+        // 이어서 쓰는 글자까지 연결되지 않게 한다.
+        .unsetMark("link")
+        // 공백만 담은 문자열은 HTML로 읽히며 사라지므로 글자 조각으로 넣는다.
+        .insertContent({ type: "text", text: " " })
+        .run();
+    } else {
+      editor.chain().focus().extendMarkRange("link").setLink({ href, target: null }).run();
+    }
+    setOpen(false);
+    onNotice(`${name} 탭을 연결했습니다`);
+  }
+
+  return (
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) setQuery("");
+      }}
+    >
+      <Popover.Trigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="다른 탭 연결"
+            title="다른 탭 연결"
+            className={cn(active && "bg-(--tab) text-(--on-tab) hover:bg-(--tab) hover:text-(--on-tab)")}
+          />
+        }
+      >
+        <Link2 />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={4} align="start" className="z-50">
+          <Popover.Popup
+            finalFocus={false}
+            aria-label="연결할 탭"
+            className="flex w-72 flex-col gap-1 rounded-md border bg-background p-2 shadow-md"
+          >
+            <input
+              aria-label="탭 이름 검색"
+              placeholder="탭 이름 검색"
+              value={query}
+              className="h-9 rounded-md border bg-background px-2 text-sm"
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && choices[0]) {
+                  event.preventDefault();
+                  link(choices[0]);
+                }
+              }}
+            />
+            <div className="flex max-h-64 flex-col overflow-y-auto">
+              {choices.length === 0 && <p className="p-2 text-sm text-muted-foreground">연결할 탭이 없습니다.</p>}
+              {choices.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  className="focus-inset flex min-h-9 shrink-0 items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-muted"
+                  onClick={() => link(tab)}
+                >
+                  <TabIcon
+                    template={tab.template}
+                    className="size-4 shrink-0"
+                    style={{ color: resolveTabColor(tabs, tab.id) }}
+                    aria-hidden
+                  />
+                  <span className="truncate">{tab.title || "제목 없음"}</span>
+                </button>
+              ))}
+            </div>
+            {active && (
+              <button
+                type="button"
+                className="focus-inset flex min-h-9 items-center gap-2 rounded-md border-t px-2 text-left text-sm hover:bg-muted"
+                onClick={() => {
+                  editor.chain().focus().extendMarkRange("link").unsetLink().run();
+                  setOpen(false);
+                }}
+              >
+                <Link2Off className="size-4 shrink-0" aria-hidden />
+                연결 끊기
+              </button>
+            )}
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

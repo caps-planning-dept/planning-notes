@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  moveTab,
+  moveTargets,
   moveToTrash,
   purgeExpired,
   purgeSummary,
@@ -134,5 +136,44 @@ describe("영구 삭제", () => {
     tabs = moveToTrash(tabs, "a", 2000);
     expect(purgeSummary(tabs, "a").descendants).toBe(1);
     expect(ids(removeWithDescendants(tabs, "a"))).toEqual(["c"]);
+  });
+});
+
+describe("탭 옮기기", () => {
+  const tabs = [
+    tab("a", null, { createdAt: 2 }),
+    tab("a1", "a"),
+    tab("a1x", "a1"),
+    tab("b", null, { createdAt: 1, pinnedAt: 5 }),
+    tab("gone", null, { deletedAt: 1 }),
+  ];
+
+  it("자기 자신, 자기 하위 탭, 휴지통의 탭은 후보에서 뺀다", () => {
+    expect(moveTargets(tabs, "a").map(({ tab: item }) => item.id)).toEqual(["b"]);
+    expect(moveTargets(tabs, "a1").map(({ tab: item }) => item.id)).toEqual(["b", "a"]);
+  });
+
+  it("후보는 사이드바처럼 깊이를 함께 돌려준다", () => {
+    expect(moveTargets(tabs, "b")).toEqual([
+      { tab: tabs[0], depth: 0 },
+      { tab: tabs[1], depth: 1 },
+      { tab: tabs[2], depth: 2 },
+    ]);
+  });
+
+  it("하위 탭을 최상위로 올리면 하위 탭이 따라온다", () => {
+    const next = moveTab(tabs, "a1", null);
+    expect(next.find((item) => item.id === "a1")?.parentId).toBeNull();
+    expect(visibleChildren(next, "a1").map((item) => item.id)).toEqual(["a1x"]);
+  });
+
+  it("최상위 탭을 하위 탭으로 내리면 고정을 푼다", () => {
+    const next = moveTab(tabs, "b", "a1x");
+    expect(next.find((item) => item.id === "b")).toMatchObject({ parentId: "a1x", pinnedAt: null });
+  });
+
+  it("자기 하위 탭이나 휴지통의 탭 아래로는 옮기지 않는다", () => {
+    expect(moveTab(tabs, "a", "a1x")).toBe(tabs);
+    expect(moveTab(tabs, "a", "gone")).toBe(tabs);
   });
 });
