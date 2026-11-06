@@ -28,13 +28,13 @@
 ## 4. 운영 서비스
 
 - [x] Liveblocks 운영용 프로젝트를 만들고 `LIVEBLOCKS_SECRET_KEY` 교체 (Vercel)
-- [ ] Supabase MCP를 읽기 전용으로 변경
+- [x] Supabase MCP를 읽기 전용으로 변경 (`.mcp.json`의 `read_only=true`, 새 세션부터 적용)
 - [x] 자동 백업 코드 작성 (`scripts/backup.mjs`)
 - [x] 백업 저장소 설정과 첫 실행 ([backup.md](backup.md))
 - [x] Liveblocks 운영 키로 바꾼 뒤 백업 저장소의 `LIVEBLOCKS_SECRET_KEY`도 교체 (수동 실행으로 확인)
-- [ ] 백업 복구 연습
+- [x] 백업 복구 연습 (탭과 노트, 취소되는 시험으로 확인. [backup.md](backup.md#복구))
 - [x] 개인정보처리방침 페이지 초안 작성 (`/privacy`)
-- [ ] 배포일에 맞춰 방침의 시행일 수정
+- [x] 배포일에 맞춰 방침의 시행일 수정 (2026년 11월 6일 유지)
 - [ ] 신청 폼의 동의 방식 재검토 (현재 체크 없이 안내만 표시)
 
 ## 5. 데이터 정리
