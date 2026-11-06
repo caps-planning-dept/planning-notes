@@ -70,5 +70,16 @@ export function useInquiries(workspaceId: string) {
     await fetchInquiries();
   }
 
-  return { loaded, inquiries, error, submit, setStatus };
+  /** 관리자만 지울 수 있다. 권한이 없으면 DB가 0건을 지우므로 돌려받은 행으로 확인한다. */
+  async function remove(id: string) {
+    setError("");
+    const { data, error: deleteError } = await supabase.from("inquiries").delete().eq("id", id).select("id");
+    if (deleteError || data.length === 0) {
+      setError("문의를 삭제하지 못했습니다. 다시 시도해 주세요.");
+      return;
+    }
+    await fetchInquiries();
+  }
+
+  return { loaded, inquiries, error, submit, setStatus, remove };
 }

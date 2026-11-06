@@ -1,14 +1,22 @@
 "use client";
 
-import { Check, RotateCcw, Send } from "lucide-react";
+import { Check, RotateCcw, Send, Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useInquiries } from "@/hooks/use-inquiries";
 import type { Member } from "@/hooks/use-workspace";
-import { INQUIRY_BODY_MAX, INQUIRY_TITLE_MAX, validateInquiry } from "@/lib/inquiry";
+import { type Inquiry, INQUIRY_BODY_MAX, INQUIRY_TITLE_MAX, validateInquiry } from "@/lib/inquiry";
 
 const dateFormat = new Intl.DateTimeFormat("ko-KR", {
   month: "numeric",
@@ -20,7 +28,8 @@ const dateFormat = new Intl.DateTimeFormat("ko-KR", {
 type InquiriesViewProps = { workspaceId: string; members: Member[]; isAdmin: boolean };
 
 export function InquiriesView({ workspaceId, members, isAdmin }: InquiriesViewProps) {
-  const { loaded, inquiries, error, submit, setStatus } = useInquiries(workspaceId);
+  const { loaded, inquiries, error, submit, setStatus, remove } = useInquiries(workspaceId);
+  const [deleting, setDeleting] = useState<Inquiry | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [errors, setErrors] = useState<{ title?: string; body?: string }>({});
@@ -111,18 +120,49 @@ export function InquiriesView({ workspaceId, members, isAdmin }: InquiriesViewPr
                 {dateFormat.format(new Date(inquiry.createdAt))}
               </p>
               {isAdmin && (
-                <Button
-                  variant="outline"
-                  onClick={() => setStatus(inquiry.id, inquiry.status === "done" ? "open" : "done")}
-                >
-                  {inquiry.status === "done" ? <RotateCcw data-icon="inline-start" /> : <Check data-icon="inline-start" />}
-                  {inquiry.status === "done" ? "접수로 되돌리기" : "완료로 표시"}
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setStatus(inquiry.id, inquiry.status === "done" ? "open" : "done")}
+                  >
+                    {inquiry.status === "done" ? <RotateCcw data-icon="inline-start" /> : <Check data-icon="inline-start" />}
+                    {inquiry.status === "done" ? "접수로 되돌리기" : "완료로 표시"}
+                  </Button>
+                  <Button variant="outline" onClick={() => setDeleting(inquiry)}>
+                    <Trash2 data-icon="inline-start" />
+                    삭제
+                  </Button>
+                </div>
               )}
             </div>
           </article>
         ))}
       </section>
+
+      <Dialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>이 문의를 삭제할까요?</DialogTitle>
+            <DialogDescription>
+              {deleting?.title} · 삭제하면 되돌릴 수 없고 작성자에게도 보이지 않습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleting(null)}>
+              취소
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deleting) remove(deleting.id);
+                setDeleting(null);
+              }}
+            >
+              삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
