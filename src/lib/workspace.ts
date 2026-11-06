@@ -92,6 +92,24 @@ export function purgeExpired(tabs: Tab[], now: number): Tab[] {
   );
 }
 
+/**
+ * 탭을 영구 삭제할 때 함께 지워지는 것을 알려 준다.
+ * DB에서는 하위 탭이 휴지통에 들어간 시각과 상관없이 모두 함께 지워진다.
+ */
+export function purgeSummary(tabs: Tab[], id: string): { descendants: number; hasCapture: boolean } {
+  const family = [id, ...descendantIds(tabs, id)];
+  return {
+    descendants: family.length - 1,
+    hasCapture: tabs.some((tab) => family.includes(tab.id) && tab.template === "capture"),
+  };
+}
+
+/** 영구 삭제한 탭과 그 하위 탭을 목록에서 뺀다. */
+export function removeWithDescendants(tabs: Tab[], id: string): Tab[] {
+  const family = new Set([id, ...descendantIds(tabs, id)]);
+  return tabs.filter((tab) => !family.has(tab.id));
+}
+
 /** 휴지통 목록을 돌려준다. 함께 삭제된 하위 탭은 상위 탭 복구에 포함되므로 뺀다. */
 export function trashedRoots(tabs: Tab[]): Tab[] {
   return tabs.filter((tab) => {

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   moveToTrash,
   purgeExpired,
+  purgeSummary,
+  removeWithDescendants,
   resolveTabColor,
   restoreFromTrash,
   tabFamily,
@@ -117,5 +119,20 @@ describe("휴지통", () => {
   it("삭제 후 30일이 지나면 완전히 지우고, 그 전에는 남긴다", () => {
     const tabs = [tab("old", null, { deletedAt: 0 }), tab("new", null, { deletedAt: DAY })];
     expect(purgeExpired(tabs, 30 * DAY).map((t) => t.id)).toEqual(["new"]);
+  });
+});
+
+describe("영구 삭제", () => {
+  it("하위 탭 수와 캡처 탭 포함 여부를 알려 준다", () => {
+    const tabs = [tab("a", null), tab("b", "a"), tab("c", "b", { template: "capture" }), tab("d", null)];
+    expect(purgeSummary(tabs, "a")).toEqual({ descendants: 2, hasCapture: true });
+    expect(purgeSummary(tabs, "d")).toEqual({ descendants: 0, hasCapture: false });
+  });
+
+  it("먼저 따로 지운 하위 탭도 함께 세고 함께 뺀다", () => {
+    let tabs = moveToTrash([tab("a", null), tab("b", "a"), tab("c", null)], "b", 1000);
+    tabs = moveToTrash(tabs, "a", 2000);
+    expect(purgeSummary(tabs, "a").descendants).toBe(1);
+    expect(ids(removeWithDescendants(tabs, "a"))).toEqual(["c"]);
   });
 });

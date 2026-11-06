@@ -52,7 +52,7 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
           </p>
         )}
         {!workspace.loaded && <p className="m-auto text-muted-foreground">불러오는 중입니다.</p>}
-        {workspace.loaded && view.type === "trash" && <TrashView workspace={workspace} />}
+        {workspace.loaded && view.type === "trash" && <TrashView workspace={workspace} isAdmin={isAdmin} />}
         {workspace.loaded && view.type === "members" && (
           <MembersView workspace={workspace} workspaceId={workspaceId} userId={userId} isAdmin={isAdmin} />
         )}

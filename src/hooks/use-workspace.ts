@@ -2,7 +2,14 @@ import type { JSONContent } from "@tiptap/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarEvent } from "@/lib/calendar";
 import { createClient } from "@/lib/supabase/client";
-import { moveToTrash, restoreFromTrash, type Tab, type TabTemplate, visibleChildren } from "@/lib/workspace";
+import {
+  moveToTrash,
+  removeWithDescendants,
+  restoreFromTrash,
+  type Tab,
+  type TabTemplate,
+  visibleChildren,
+} from "@/lib/workspace";
 
 export type View =
   | { type: "tab"; id: string }
@@ -309,6 +316,15 @@ export function useWorkspace(workspaceId: string, userId: string) {
     },
     restoreTab(id: string) {
       applyTabs(restoreFromTrash(tabs, id));
+    },
+    /** 관리자만 휴지통의 탭을 영구 삭제할 수 있다. 지운 행이 없으면 실패로 본다. */
+    async purgeTab(id: string): Promise<boolean> {
+      const { data, error } = await supabase.from("tabs").delete().eq("id", id).select("id");
+      if (error || data.length === 0) return false;
+      setTabs((current) => removeWithDescendants(current, id));
+      // 지운 달력 탭의 일정은 사라지고, 다른 일정의 탭 연결은 끊긴다.
+      await fetchEvents();
+      return true;
     },
     saveNote(id: string, content: JSONContent) {
       setNotes((current) => ({ ...current, [id]: content }));
