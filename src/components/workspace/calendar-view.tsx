@@ -57,17 +57,17 @@ export function CalendarView({ tab, color, workspace }: CalendarViewProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-7 text-center text-sm text-muted-foreground">
+      <div className="grid grid-cols-7 text-center text-xs font-medium text-muted-foreground">
         {WEEKDAYS.map((day) => (
           <div key={day}>{day}</div>
         ))}
       </div>
-      <div className="flex flex-1 flex-col gap-px overflow-hidden rounded-md border bg-border">
+      <div className="flex flex-1 flex-col gap-px overflow-hidden rounded-xl border border-border/80 bg-border/80 shadow-soft">
         {splitWeeks(monthCells(month.year, month.month)).map((week, weekIndex) => (
           <div key={weekIndex} className="relative min-h-22 flex-1">
             <div aria-hidden className="absolute inset-0 grid grid-cols-7 gap-px">
               {week.map((date, column) => (
-                <div key={column} className={date ? "bg-background" : "bg-secondary"} />
+                <div key={column} className={date ? "bg-background" : "bg-secondary/70"} />
               ))}
             </div>
             <div className="relative grid grid-cols-7 gap-x-px gap-y-1 pb-1">
@@ -78,8 +78,8 @@ export function CalendarView({ tab, color, workspace }: CalendarViewProps) {
                     aria-label={`${date} 일정 추가`}
                     style={{ gridColumn: column + 1, gridRow: 1 }}
                     className={cn(
-                      "focus-inset m-1 flex size-7 items-center justify-center rounded-md text-sm tabular-nums hover:bg-muted",
-                      date === today && "bg-(--tab) font-semibold text-(--on-tab) hover:bg-(--tab)",
+                      "focus-inset m-1 flex size-7 items-center justify-center rounded-md text-sm tabular-nums transition-colors duration-200 ease-soft hover:bg-muted",
+                      date === today && "bg-(--tab) font-semibold text-(--on-tab) shadow-soft hover:bg-(--tab)",
                     )}
                     onClick={() => setEditing({ event: null, date })}
                   >
@@ -134,7 +134,7 @@ function EventBar({ segment, tabColor, workspace, onEdit }: EventBarProps) {
   return (
     <div
       className={cn(
-        "group relative flex min-w-0 items-center text-xs",
+        "group relative flex min-w-0 items-center text-xs font-medium transition-[filter] duration-200 ease-soft hover:brightness-95",
         continuesBefore ? "ml-0" : "ml-1 rounded-l-sm",
         continuesAfter ? "mr-0" : "mr-1 rounded-r-sm",
       )}

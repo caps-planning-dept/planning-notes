@@ -23,7 +23,7 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
     view.type === "tab" ? workspace.tabs.find((tab) => tab.id === view.id && tab.deletedAt === null) : undefined;
 
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 bg-sidebar">
       <a
         href="#main"
         className="sr-only z-50 bg-background p-3 focus-visible:not-sr-only focus-visible:fixed focus-visible:top-2 focus-visible:left-2"
@@ -37,8 +37,8 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
         onClose={() => setMenuOpen(false)}
         onNewTab={setNewTabParent}
       />
-      <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col outline-none">
-        <div className="flex items-center gap-2 border-b p-2 md:hidden">
+      <main id="main" tabIndex={-1} className="flex min-w-0 flex-1 flex-col bg-background outline-none md:my-2 md:mr-2 md:overflow-hidden md:rounded-xl md:shadow-sheet">
+        <div className="flex items-center gap-2 border-b border-border/70 p-2 md:hidden">
           <Button variant="ghost" size="icon" aria-label="탭 목록 열기" onClick={() => setMenuOpen(true)}>
             <Menu />
           </Button>
@@ -51,7 +51,7 @@ export function WorkspaceApp({ workspaceId, userId, isAdmin }: WorkspaceAppProps
             {workspace.syncError}
           </p>
         )}
-        {!workspace.loaded && <p className="m-auto text-muted-foreground">불러오는 중입니다.</p>}
+        {!workspace.loaded && <p className="m-auto animate-pulse text-sm text-muted-foreground motion-reduce:animate-none">불러오는 중입니다.</p>}
         {workspace.loaded && view.type === "trash" && <TrashView workspace={workspace} isAdmin={isAdmin} />}
         {workspace.loaded && view.type === "members" && (
           <MembersView workspace={workspace} workspaceId={workspaceId} userId={userId} isAdmin={isAdmin} />

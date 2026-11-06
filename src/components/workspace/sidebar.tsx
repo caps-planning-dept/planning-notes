@@ -13,6 +13,10 @@ import logo from "../../../assets/logo/caps-lockup-on-white.png";
 import { NameDialog } from "./name-dialog";
 import { TabIcon } from "./tab-icon";
 
+// 아래쪽 메뉴는 탭 목록보다 한 단계 연하게 두어 시선이 탭에 먼저 가게 한다.
+const NAV_ITEM = "justify-start font-normal text-muted-foreground hover:text-foreground";
+const NAV_ACTIVE = "bg-muted font-medium text-foreground";
+
 type SidebarProps = {
   workspace: Workspace;
   userId: string;
@@ -34,17 +38,17 @@ export function Sidebar({ workspace, userId, open, onClose, onNewTab }: SidebarP
       {open && (
         <button
           aria-label="탭 목록 닫기"
-          className="fixed inset-0 z-30 bg-black/30 md:hidden"
+          className="fixed inset-0 z-30 bg-[#2b2a27]/25 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in-0 md:hidden"
           onClick={onClose}
         />
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col gap-3 border-r bg-sidebar p-3 transition-transform motion-reduce:transition-none md:static md:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col gap-3 bg-sidebar p-3 shadow-float transition-transform duration-300 ease-soft motion-reduce:transition-none md:static md:translate-x-0 md:shadow-none",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between px-1 pt-1">
           <button
             aria-label="첫 화면으로 가기"
             aria-current={workspace.view.type === "home" ? "page" : undefined}
@@ -54,22 +58,25 @@ export function Sidebar({ workspace, userId, open, onClose, onNewTab }: SidebarP
               onClose();
             }}
           >
-            <Image src={logo} alt="" priority className="h-10 w-auto mix-blend-multiply" />
+            <Image src={logo} alt="" priority className="h-9 w-auto mix-blend-multiply" />
           </button>
           <Button variant="ghost" size="icon" aria-label="탭 목록 닫기" className="md:hidden" onClick={onClose}>
             <X />
           </Button>
         </div>
-        <Button variant="outline" className="chamfer justify-start rounded-none border-0 bg-muted" onClick={() => onNewTab(null)}>
+        <Button variant="outline" className="chamfer justify-start rounded-none border-0 bg-background text-foreground shadow-soft hover:bg-background hover:text-foreground hover:shadow-float" onClick={() => onNewTab(null)}>
           <Plus data-icon="inline-start" />새 탭
         </Button>
-        <nav aria-label="탭 목록" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+        <p aria-hidden className="mt-1 px-2 text-xs font-medium text-muted-foreground">탭</p>
+        <nav aria-label="탭 목록" className="-mt-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
           <TabBranch parentId={null} depth={0} workspace={workspace} onNewTab={onNewTab} onPicked={onClose} />
         </nav>
+        <div aria-hidden className="mx-2 h-px bg-border" />
+        <div className="flex flex-col gap-0.5">
         <Button
           variant="ghost"
           aria-current={membersActive ? "page" : undefined}
-          className={cn("justify-start", membersActive && "bg-muted")}
+          className={cn(NAV_ITEM, membersActive && NAV_ACTIVE)}
           onClick={() => {
             workspace.setView({ type: "members" });
             onClose();
@@ -81,7 +88,7 @@ export function Sidebar({ workspace, userId, open, onClose, onNewTab }: SidebarP
         <Button
           variant="ghost"
           aria-current={trashActive ? "page" : undefined}
-          className={cn("justify-start", trashActive && "bg-muted")}
+          className={cn(NAV_ITEM, trashActive && NAV_ACTIVE)}
           onClick={() => {
             workspace.setView({ type: "trash" });
             onClose();
@@ -93,7 +100,7 @@ export function Sidebar({ workspace, userId, open, onClose, onNewTab }: SidebarP
         <Button
           variant="ghost"
           aria-current={inquiriesActive ? "page" : undefined}
-          className={cn("justify-start", inquiriesActive && "bg-muted")}
+          className={cn(NAV_ITEM, inquiriesActive && NAV_ACTIVE)}
           onClick={() => {
             workspace.setView({ type: "inquiries" });
             onClose();
@@ -105,13 +112,14 @@ export function Sidebar({ workspace, userId, open, onClose, onNewTab }: SidebarP
         <Button
           variant="ghost"
           aria-label={`이름 설정, 현재 이름 ${myName}`}
-          className="justify-start"
+          className={NAV_ITEM}
           onClick={() => setNameOpen(true)}
         >
           <UserPen data-icon="inline-start" />
           <span className="truncate">{myName || "이름 설정"}</span>
         </Button>
         <SignOutButton />
+        </div>
       </aside>
       <NameDialog
         open={nameOpen}
@@ -150,7 +158,10 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
 
   return (
     <div
-      className={cn("group flex items-center", active ? "chamfer" : "rounded-md hover:bg-muted")}
+      className={cn(
+        "group flex items-center transition-colors duration-200 ease-soft",
+        active ? "chamfer shadow-soft" : "rounded-md hover:bg-muted",
+      )}
       style={{
         marginLeft: depth * 14,
         ...(active ? { background: color, color: readableTextOn(color) } : {}),
@@ -158,7 +169,7 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
     >
       <button
         aria-current={active ? "page" : undefined}
-        className="focus-inset flex min-h-9 min-w-0 flex-1 items-center gap-2 px-2 text-left text-sm"
+        className={cn("focus-inset flex min-h-9 min-w-0 flex-1 items-center gap-2.5 px-2 text-left text-sm", active && "font-medium")}
         onClick={() => {
           workspace.setView({ type: "tab", id: tab.id });
           onPicked();
@@ -173,7 +184,7 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
           aria-label={`${tab.title || "제목 없음"} ${pinned ? "고정 해제" : "맨 위에 고정"}`}
           aria-pressed={pinned}
           title={pinned ? "고정 해제" : "맨 위에 고정"}
-          className="focus-inset flex size-9 shrink-0 items-center justify-center opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 md:opacity-0"
+          className="focus-inset flex size-9 shrink-0 items-center justify-center opacity-70 transition-opacity duration-200 ease-soft group-focus-within:opacity-100 group-hover:opacity-100 hover:opacity-100 md:opacity-0"
           onClick={() => workspace.setTabPinned(tab.id, !pinned)}
         >
           {pinned ? <PinOff className="size-4" aria-hidden /> : <Pin className="size-4" aria-hidden />}
@@ -181,7 +192,7 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
       )}
       <button
         aria-label={`${tab.title || "제목 없음"} 안에 하위 탭 만들기`}
-        className="focus-inset flex size-9 shrink-0 items-center justify-center opacity-100 group-focus-within:opacity-100 group-hover:opacity-100 md:opacity-0"
+        className="focus-inset flex size-9 shrink-0 items-center justify-center opacity-70 transition-opacity duration-200 ease-soft group-focus-within:opacity-100 group-hover:opacity-100 hover:opacity-100 md:opacity-0"
         onClick={() => onNewTab(tab.id)}
       >
         <Plus className="size-4" aria-hidden />

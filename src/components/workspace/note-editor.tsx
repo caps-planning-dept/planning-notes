@@ -343,7 +343,7 @@ function Threads({ editor, wide }: { editor: Editor; wide: boolean }) {
         <section aria-label="답글" className="mt-6 flex flex-col gap-3 border-t pt-4">
           <h2 className="text-sm font-medium">답글</h2>
           {threads.map((thread) => (
-            <ReplyThread key={thread.id} thread={thread} className="rounded-md border" />
+            <ReplyThread key={thread.id} thread={thread} className="rounded-xl border border-border/70 shadow-soft" />
           ))}
         </section>
       )}
@@ -373,7 +373,7 @@ function ReplyBubble({ editor }: { editor: Editor }) {
     >
       <Button
         variant="outline"
-        className="rounded-full bg-background shadow-md"
+        className="rounded-full border-border/70 bg-background shadow-float"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => editor.chain().focus().addPendingComment().run()}
       >
@@ -428,7 +428,7 @@ function ColorMenu({ label, icon: Icon, colors, active, onPick, onClear }: Color
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner sideOffset={4} className="z-50">
-          <Popover.Popup finalFocus={false} aria-label={label} className="flex gap-1 rounded-md border bg-background p-1 shadow-md">
+          <Popover.Popup finalFocus={false} aria-label={label} className="flex gap-1 rounded-lg border border-border/70 bg-background p-1 shadow-float">
             {colors.map((color) => (
               <button
                 key={color.value}
@@ -504,7 +504,7 @@ function Toolbar({ editor, notice, onUpload, onNotice }: ToolbarProps) {
   const chain = () => editor.chain().focus();
 
   return (
-    <div role="toolbar" aria-label="글자 서식" className="sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b bg-background py-1">
+    <div role="toolbar" aria-label="글자 서식" className="sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b border-border/70 bg-background/90 py-1.5 backdrop-blur-sm">
       <select
         aria-label="글꼴"
         className="h-9 rounded-md border bg-background px-2 text-sm"
@@ -644,7 +644,7 @@ function TabLinkMenu({ editor, active, onNotice }: TabLinkMenuProps) {
           <Popover.Popup
             finalFocus={false}
             aria-label="연결할 탭"
-            className="flex w-72 flex-col gap-1 rounded-md border bg-background p-2 shadow-md"
+            className="flex w-72 flex-col gap-1 rounded-xl border border-border/70 bg-background p-2 shadow-float"
           >
             <input
               aria-label="탭 이름 검색"

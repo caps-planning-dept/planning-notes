@@ -4,6 +4,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* 부드러운 깊이와 움직임. 그림자는 검정 대신 먹색(#2b2a27)으로 물들여 따뜻한 회색과 어울리게 한다. */
+@theme {
+  --shadow-soft: 0 1px 2px rgb(43 42 39 / 0.04), 0 4px 16px -8px rgb(43 42 39 / 0.1);
+  --shadow-float: 0 1px 2px rgb(43 42 39 / 0.05), 0 12px 32px -12px rgb(43 42 39 / 0.18),
+    0 32px 64px -32px rgb(43 42 39 / 0.16);
+  --shadow-sheet: 0 0 0 1px rgb(43 42 39 / 0.05), 0 1px 3px rgb(43 42 39 / 0.04),
+    0 8px 24px -16px rgb(43 42 39 / 0.12);
+  --ease-soft: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -126,7 +136,36 @@
   }
   html {
     @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
   }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background: rgb(43 42 39 / 0.14);
+  }
+  /* 스크롤 막대를 얇고 연하게 해서 면을 덜 가르게 한다. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(43 42 39 / 0.18) transparent;
+  }
+}
+
+/* 굵은 제목 글꼴은 자간을 살짝 좁혀 단단하게 보이게 한다. */
+.font-display {
+  letter-spacing: -0.01em;
+}
+
+/* 탭 색 면 위에 빛이 비친 듯한 옅은 결을 얹는다. 배경색은 그대로 두고 그림만 겹친다. */
+.sheen {
+  background-image:
+    radial-gradient(120% 140% at 100% 0%, rgb(255 255 255 / 0.12), transparent 55%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.06), transparent 40%);
 }
 
 /* 로고에서 가져온 모양: 왼쪽 위와 오른쪽 아래 모서리를 깎는다. */

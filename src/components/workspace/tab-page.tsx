@@ -39,15 +39,15 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
 
   return (
     <div style={tabStyle} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <header className="chamfer-lg m-3 flex shrink-0 flex-col gap-4 bg-(--tab) px-6 py-5 text-(--on-tab) md:m-4 md:px-10 md:py-7">
+      <header className="chamfer-lg sheen m-3 flex shrink-0 flex-col gap-4 bg-(--tab) px-6 py-5 text-(--on-tab) md:m-4 md:px-10 md:py-7">
         <div className="flex items-center justify-between gap-2 text-sm">
-          <span>{TEMPLATE_LABELS[tab.template]}</span>
+          <span className="opacity-80">{TEMPLATE_LABELS[tab.template]}</span>
           <div className="flex gap-1">
             <Button
               variant="ghost"
               size="icon"
               aria-label="탭 색상 바꾸기"
-              className="text-inherit hover:bg-white/20 hover:text-inherit"
+              className="text-inherit opacity-80 hover:bg-white/15 hover:text-inherit hover:opacity-100"
               onClick={() => setColorOpen(true)}
             >
               <Palette />
@@ -57,7 +57,7 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
               size="icon"
               aria-label="탭 위치 옮기기"
               title="탭 위치 옮기기"
-              className="text-inherit hover:bg-white/20 hover:text-inherit"
+              className="text-inherit opacity-80 hover:bg-white/15 hover:text-inherit hover:opacity-100"
               onClick={() => setMoveOpen(true)}
             >
               <FolderInput />
@@ -66,7 +66,7 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
               variant="ghost"
               size="icon"
               aria-label="탭을 휴지통으로 옮기기"
-              className="text-inherit hover:bg-white/20 hover:text-inherit"
+              className="text-inherit opacity-80 hover:bg-white/15 hover:text-inherit hover:opacity-100"
               onClick={() => workspace.trashTab(tab.id)}
             >
               <Trash2 />

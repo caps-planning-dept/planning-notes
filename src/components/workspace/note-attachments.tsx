@@ -100,7 +100,7 @@ function FileView({ node, selected }: ReactNodeViewProps) {
       <div
         contentEditable={false}
         className={cn(
-          "flex max-w-md items-center gap-3 rounded-md border bg-background p-2 pl-3",
+          "flex max-w-md items-center gap-3 rounded-lg border border-border/70 bg-background p-2 pl-3 shadow-soft",
           selected && "ring-2 ring-ring ring-offset-2",
         )}
       >
