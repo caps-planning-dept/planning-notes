@@ -16,6 +16,7 @@ import type { Workspace } from "@/hooks/use-workspace";
 import type { CalendarEvent } from "@/lib/calendar";
 import type { Tab } from "@/lib/workspace";
 import { ColorPicker } from "./color-picker";
+import { TEMPLATE_LABELS } from "./tab-icon";
 
 type EventDialogProps = {
   tab: Tab;
@@ -43,7 +44,8 @@ export function EventDialog({ tab, tabColor, date, event, workspace, onClose }: 
   );
   const [error, setError] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const noteTabs = workspace.tabs.filter((item) => item.template === "note" && item.deletedAt === null);
+  // 노트뿐 아니라 캡처, 다른 달력 탭도 연결할 수 있다. 지금 보고 있는 달력 자신은 뺀다.
+  const linkableTabs = workspace.tabs.filter((item) => item.id !== tab.id && item.deletedAt === null);
   const edit = (change: Partial<CalendarEvent>) => {
     setDraft({ ...draft, ...change });
     setError("");
@@ -91,7 +93,7 @@ export function EventDialog({ tab, tabColor, date, event, workspace, onClose }: 
             <Textarea id="event-memo" value={draft.memo} onChange={(e) => edit({ memo: e.target.value })} />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="event-link">회의록 탭 연결</Label>
+            <Label htmlFor="event-link">탭 연결</Label>
             <div className="flex gap-2">
               <select
                 id="event-link"
@@ -100,13 +102,13 @@ export function EventDialog({ tab, tabColor, date, event, workspace, onClose }: 
                 onChange={(e) => edit({ linkedTabId: e.target.value || null })}
               >
                 <option value="">연결 안 함</option>
-                {noteTabs.map((item) => (
+                {linkableTabs.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.title || "제목 없음"}
+                    {item.title || "제목 없음"} · {TEMPLATE_LABELS[item.template]}
                   </option>
                 ))}
               </select>
-              {draft.linkedTabId && noteTabs.some((item) => item.id === draft.linkedTabId) && (
+              {draft.linkedTabId && linkableTabs.some((item) => item.id === draft.linkedTabId) && (
                 <Button
                   type="button"
                   variant="outline"
