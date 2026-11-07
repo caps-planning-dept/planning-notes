@@ -19,21 +19,19 @@ export async function POST(request: Request) {
   const tabId = tabIdFromRoom(room);
   if (!tabId) return json("잘못된 요청입니다.", 400);
 
-  // RLS가 적용되므로 멤버가 아니면 탭을 조회할 수 없다.
-  const { data: tab } = await supabase
-    .from("tabs")
-    .select("id")
-    .eq("id", tabId)
-    .eq("template", "note")
-    .is("deleted_at", null)
-    .maybeSingle();
+  // 두 조회는 서로 기다릴 필요가 없으므로 함께 보낸다.
+  const [{ data: tab }, { data: profile }] = await Promise.all([
+    // RLS가 적용되므로 멤버가 아니면 탭을 조회할 수 없다.
+    supabase
+      .from("tabs")
+      .select("id")
+      .eq("id", tabId)
+      .eq("template", "note")
+      .is("deleted_at", null)
+      .maybeSingle(),
+    supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).maybeSingle(),
+  ]);
   if (!tab) return json("이 노트를 열 권한이 없습니다.", 403);
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, avatar_url")
-    .eq("id", userId)
-    .maybeSingle();
 
   const session = new Liveblocks({ secret }).prepareSession(userId, {
     userInfo: {
