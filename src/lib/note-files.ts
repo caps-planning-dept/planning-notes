@@ -25,3 +25,35 @@ export function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
+
+/** 사진 너비(본문 폭에 대한 %)의 한계와 빠른 선택 값 */
+export const MIN_IMAGE_WIDTH = 15;
+export const MAX_IMAGE_WIDTH = 100;
+export const IMAGE_WIDTH_PRESETS = [
+  { label: "작게", value: 33 },
+  { label: "중간", value: 50 },
+  { label: "크게", value: 75 },
+  { label: "꽉 차게", value: 100 },
+] as const;
+
+/** 사진 너비를 한계 안의 정수로 맞춘다. 숫자가 아니면 null(원래 크기)을 돌려준다. */
+export function clampImageWidth(value: unknown): number | null {
+  const number = typeof value === "string" ? Number(value) : value;
+  if (typeof number !== "number" || !Number.isFinite(number) || number <= 0) return null;
+  return Math.round(Math.min(MAX_IMAGE_WIDTH, Math.max(MIN_IMAGE_WIDTH, number)));
+}
+
+/** 올리기 전에 줄일 사진의 긴 쪽 최대 길이(px) */
+export const MAX_IMAGE_EDGE = 2000;
+
+/** 긴 쪽이 maxEdge를 넘으면 비율을 지켜 줄인 크기를, 아니면 원래 크기를 돌려준다. */
+export function fitImageSize(width: number, height: number, maxEdge = MAX_IMAGE_EDGE) {
+  const scale = Math.min(1, maxEdge / Math.max(width, height));
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+}
+
+/** 파일 이름의 확장자를 바꾼다. 줄인 사진은 형식이 바뀔 수 있다. */
+export function replaceExtension(fileName: string, extension: string): string {
+  const base = fileName.replace(/\.[^./\\]{1,8}$/, "");
+  return `${base || "사진"}.${extension}`;
+}

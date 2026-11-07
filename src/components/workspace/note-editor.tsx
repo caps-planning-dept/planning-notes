@@ -16,7 +16,9 @@ import { AnchoredThreads, FloatingComposer, FloatingThreads, useLiveblocksExtens
 import { LiveblocksUiConfig, Thread, type ThreadProps } from "@liveblocks/react-ui";
 import Highlight from "@tiptap/extension-highlight";
 import Placeholder from "@tiptap/extension-placeholder";
+import { TableKit } from "@tiptap/extension-table";
 import { NodeSelection } from "@tiptap/pm/state";
+import { CellSelection } from "@tiptap/pm/tables";
 import { Color, FontFamily, TextStyle } from "@tiptap/extension-text-style";
 import { EditorContent, type Editor, type JSONContent, useEditor, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -36,6 +38,7 @@ import {
   MessageSquarePlus,
   Paperclip,
   Quote,
+  Table,
   Underline,
   type LucideIcon,
 } from "lucide-react";
@@ -211,6 +214,8 @@ function CollaborativeEditor({ content, onChange }: NoteContentProps) {
       liveblocks,
       // 링크는 아래 handleClick에서 직접 연다. 탭 연결은 새 창 대신 앱 안에서 이동해야 한다.
       StarterKit.configure({ undoRedo: false, link: { openOnClick: false } }),
+      // 칸 경계를 끌어 칸 너비를 바꿀 수 있다. 사진을 칸에 넣어 표처럼 늘어놓을 수 있다.
+      TableKit.configure({ table: { resizable: true, cellMinWidth: 48 } }),
       NoteImage,
       NoteFile,
       TextStyle,
@@ -366,9 +371,12 @@ function ReplyBubble({ editor }: { editor: Editor }) {
       className="z-30"
       // 첫 줄에서 위쪽 도구 막대를 가리지 않도록, 본문 위쪽에 자리가 없으면 아래로 띄운다.
       options={{ placement: "top", flip: { boundary: editor.view.dom } }}
-      // 사진이나 파일 칸을 골랐을 때는 답글 버튼을 띄우지 않는다.
+      // 사진이나 파일 칸, 표의 여러 칸을 골랐을 때는 답글 버튼을 띄우지 않는다.
       shouldShow={({ editor: current, state }) =>
-        !state.selection.empty && !(state.selection instanceof NodeSelection) && current.isEditable
+        !state.selection.empty &&
+        !(state.selection instanceof NodeSelection) &&
+        !(state.selection instanceof CellSelection) &&
+        current.isEditable
       }
     >
       <Button
@@ -499,6 +507,9 @@ function Toolbar({ editor, notice, onUpload, onNotice }: ToolbarProps) {
       ordered: current.isActive("orderedList"),
       quote: current.isActive("blockquote"),
       link: current.isActive("link"),
+      table: current.isActive("table"),
+      header: current.isActive("tableHeader"),
+      merge: current.can().mergeOrSplit(),
     }),
   });
   const chain = () => editor.chain().focus();
@@ -543,11 +554,118 @@ function Toolbar({ editor, notice, onUpload, onNotice }: ToolbarProps) {
       <Tool label="번호 목록" icon={ListOrdered} active={state.ordered} run={() => chain().toggleOrderedList().run()} />
       <Tool label="인용" icon={Quote} active={state.quote} run={() => chain().toggleBlockquote().run()} />
       <TabLinkMenu editor={editor} active={state.link} onNotice={onNotice} />
+      <TableMenu editor={editor} active={state.table} />
       <FilePickerTool label="사진 넣기" icon={ImagePlus} accept="image/*" onPick={onUpload} />
       <FilePickerTool label="파일 첨부" icon={Paperclip} onPick={onUpload} />
       <span role="status" className={cn("ml-auto text-sm", notice ? "text-foreground" : "text-muted-foreground")}>
         {notice || <ConnectionStatus />}
       </span>
+      {state.table && <TableTools editor={editor} header={state.header} merge={state.merge} />}
+    </div>
+  );
+}
+
+const TABLE_PICKER_SIZE = 6;
+
+/** 표 넣기. 마우스를 올린(또는 누른) 칸까지의 크기로 표를 만든다. */
+function TableMenu({ editor, active }: { editor: Editor; active: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [size, setSize] = useState({ rows: 2, cols: 2 });
+  const cells = Array.from({ length: TABLE_PICKER_SIZE * TABLE_PICKER_SIZE }, (_, index) => ({
+    row: Math.floor(index / TABLE_PICKER_SIZE) + 1,
+    col: (index % TABLE_PICKER_SIZE) + 1,
+  }));
+
+  function insert(rows: number, cols: number) {
+    // 사진을 늘어놓는 데도 쓰므로 제목 줄 없이 만든다. 필요하면 표 도구에서 켠다.
+    editor.chain().focus().insertTable({ rows, cols, withHeaderRow: false }).run();
+    setOpen(false);
+  }
+
+  return (
+    <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Trigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="표 넣기"
+            title="표 넣기"
+            className={cn(active && "bg-(--tab) text-(--on-tab) hover:bg-(--tab) hover:text-(--on-tab)")}
+          />
+        }
+      >
+        <Table />
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Positioner sideOffset={4} className="z-50">
+          <Popover.Popup
+            finalFocus={false}
+            aria-label="표 크기 고르기"
+            className="flex flex-col gap-2 rounded-lg border border-border/70 bg-background p-2 shadow-float"
+          >
+            <div className="grid grid-cols-6 gap-1" onMouseLeave={() => setSize({ rows: 2, cols: 2 })}>
+              {cells.map(({ row, col }) => {
+                const on = row <= size.rows && col <= size.cols;
+                return (
+                  <button
+                    key={`${row}-${col}`}
+                    type="button"
+                    aria-label={`${row}줄 ${col}칸 표 넣기`}
+                    className={cn(
+                      "size-6 rounded-sm border",
+                      on ? "border-(--tab) bg-(--tab)/25" : "border-border bg-background hover:bg-muted",
+                    )}
+                    onMouseEnter={() => setSize({ rows: row, cols: col })}
+                    onFocus={() => setSize({ rows: row, cols: col })}
+                    onClick={() => insert(row, col)}
+                  />
+                );
+              })}
+            </div>
+            <p className="text-center text-xs text-muted-foreground">
+              {size.rows}줄 × {size.cols}칸
+            </p>
+          </Popover.Popup>
+        </Popover.Positioner>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+type TableToolsProps = { editor: Editor; header: boolean; merge: boolean };
+
+/** 커서가 표 안에 있을 때 도구 막대 아래에 나오는 표 도구 */
+function TableTools({ editor, header, merge }: TableToolsProps) {
+  const chain = () => editor.chain().focus();
+  const actions: { label: string; run: () => void; danger?: boolean; pressed?: boolean; disabled?: boolean }[] = [
+    { label: "아래에 줄 추가", run: () => chain().addRowAfter().run() },
+    { label: "오른쪽에 칸 추가", run: () => chain().addColumnAfter().run() },
+    { label: "줄 지우기", run: () => chain().deleteRow().run() },
+    { label: "칸 지우기", run: () => chain().deleteColumn().run() },
+    { label: "칸 합치기·나누기", run: () => chain().mergeOrSplit().run(), disabled: !merge },
+    { label: "제목 줄", run: () => chain().toggleHeaderRow().run(), pressed: header },
+    { label: "표 지우기", run: () => chain().deleteTable().run(), danger: true },
+  ];
+
+  return (
+    <div role="group" aria-label="표 도구" className="flex basis-full flex-wrap gap-1 border-t border-border/70 pt-1.5">
+      {actions.map((action) => (
+        <Button
+          key={action.label}
+          variant="ghost"
+          disabled={action.disabled}
+          aria-pressed={action.pressed}
+          className={cn(
+            action.danger && "text-destructive hover:text-destructive",
+            action.pressed && "bg-(--tab) text-(--on-tab) hover:bg-(--tab) hover:text-(--on-tab)",
+          )}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={action.run}
+        >
+          {action.label}
+        </Button>
+      ))}
     </div>
   );
 }

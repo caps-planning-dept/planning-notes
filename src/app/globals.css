@@ -208,6 +208,19 @@
   margin-top: 0.6em;
 }
 
+.note-content .note-image {
+  margin-block: 0.5rem;
+}
+
+/* 너비를 정한 사진은 옆으로 이어 붙는다. 중간(50%) 사진 두 장은 한 줄에, 작게(33%) 세 장도 한 줄에 놓인다. */
+.note-content [data-sized="true"] {
+  display: inline-block;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding-right: 0.5rem;
+  vertical-align: top;
+}
+
 .note-content mark {
   border-radius: 2px;
   padding: 0 2px;
@@ -246,6 +259,76 @@
   border-left: 3px solid var(--tab, var(--border));
   padding-left: 1em;
   color: var(--muted-foreground);
+}
+
+/* 표. 넓은 표는 휴대폰에서 옆으로 밀어 본다. */
+.note-content .tableWrapper {
+  overflow-x: auto;
+  margin-block: 0.5rem;
+}
+
+.note-content table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  overflow: hidden;
+}
+
+.note-content td,
+.note-content th {
+  position: relative;
+  min-width: 3rem;
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+  box-sizing: border-box;
+}
+
+.note-content th {
+  background: var(--muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+.note-content td > * + *,
+.note-content th > * + * {
+  margin-top: 0.4em;
+}
+
+/* 칸 안의 사진은 칸 너비에 맞춘다. 사진만 넣은 표는 사진 격자가 된다. */
+.note-content td .note-image,
+.note-content th .note-image {
+  margin-block: 0;
+}
+
+.note-content td .note-image img,
+.note-content th .note-image img {
+  max-height: none;
+  max-width: 100%;
+}
+
+/* 여러 칸을 골랐을 때 */
+.note-content .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--tab, var(--ring)) 18%, transparent);
+  pointer-events: none;
+}
+
+/* 칸 경계를 끄는 손잡이 */
+.note-content .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: -2px;
+  width: 4px;
+  background: var(--tab, var(--ring));
+  pointer-events: none;
+}
+
+.note-content.resize-cursor {
+  cursor: col-resize;
 }
 
 .note-content p.is-editor-empty:first-child::before {
