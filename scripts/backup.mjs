@@ -1,4 +1,4 @@
-// 매일 실행되어 회의록, 일정, 문의, 답글을 JSON 파일로 저장한다. docs/backup.md 참고.
+// 매일 실행되어 회의록, 일정, 시간표, 문의, 답글을 JSON 파일로 저장한다. docs/backup.md 참고.
 // 캡처 신청 정보는 학번 등을 여러 곳에 남기지 않도록 일부러 포함하지 않는다.
 import { mkdir, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -14,6 +14,8 @@ export const BACKUP_TABLES = [
   { table: "notes", columns: "*", order: "tab_id" },
   { table: "calendar_events", columns: "*", order: "id" },
   { table: "inquiries", columns: "*", order: "id" },
+  { table: "timetable_people", columns: "*", order: "id" },
+  { table: "timetable_entries", columns: "*", order: "id" },
 ];
 
 const PAGE_SIZE = 1000;

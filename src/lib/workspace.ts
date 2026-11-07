@@ -1,4 +1,4 @@
-export type TabTemplate = "note" | "calendar" | "capture";
+export type TabTemplate = "note" | "calendar" | "capture" | "timetable";
 
 export type Tab = {
   id: string;

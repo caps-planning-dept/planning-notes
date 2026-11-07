@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ClipboardList, FileText } from "lucide-react";
+import { CalendarDays, ClipboardList, FileText, Table2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +21,7 @@ import { ColorPicker } from "./color-picker";
 const TEMPLATES: { value: TabTemplate; label: string; hint: string; icon: typeof FileText }[] = [
   { value: "note", label: "일반 노트", hint: "회의록과 메모", icon: FileText },
   { value: "calendar", label: "달력", hint: "날짜별 일정", icon: CalendarDays },
+  { value: "timetable", label: "시간표", hint: "모두 비는 시간 찾기", icon: Table2 },
   { value: "capture", label: "캡처", hint: "신청과 조 편성", icon: ClipboardList },
 ];
 
@@ -85,7 +86,7 @@ function NewTabForm({ parentId, isAdmin, onClose, onCreate }: NewTabFormProps) {
       </div>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">템플릿</legend>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2">
           {templates.map(({ value, label, hint, icon: Icon }) => (
             <label
               key={value}

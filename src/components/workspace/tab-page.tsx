@@ -20,6 +20,7 @@ import { MoveTabDialog } from "./move-tab-dialog";
 import { NoteEditor } from "./note-editor";
 import { TEMPLATE_LABELS } from "./tab-icon";
 import { TabStrip } from "./tab-strip";
+import { TimetableView } from "./timetable-view";
 
 type TabPageProps = {
   tab: Tab;
@@ -100,6 +101,9 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
         />
       )}
       {tab.template === "calendar" && <CalendarView tab={tab} color={color} workspace={workspace} />}
+      {tab.template === "timetable" && (
+        <TimetableView tabId={tab.id} userId={userId} isAdmin={isAdmin} />
+      )}
       {tab.template === "capture" && (
         <CaptureView tabId={tab.id} title={tab.title} members={workspace.members} userId={userId} isAdmin={isAdmin} />
       )}
