@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import type { Workspace } from "@/hooks/use-workspace";
 import { readableTextOn } from "@/lib/color";
 import { resolveTabColor, type Tab, tabFamily } from "@/lib/workspace";
+import { usePreloadNote } from "./note-connection";
 import { TabIcon } from "./tab-icon";
 
 type TabStripProps = {
@@ -15,6 +16,7 @@ type TabStripProps = {
 export function TabStrip({ tab, workspace, onNewTab }: TabStripProps) {
   const { owner, members } = tabFamily(workspace.tabs, tab.id);
   const divided = members.length > 1;
+  const preloadNote = usePreloadNote();
 
   return (
     <nav
@@ -35,6 +37,8 @@ export function TabStrip({ tab, workspace, onNewTab }: TabStripProps) {
                   : "focus-inset flex min-h-9 max-w-52 shrink-0 items-center gap-2 rounded-md px-3 text-sm text-muted-foreground transition-colors duration-200 ease-soft hover:bg-secondary hover:text-foreground"
               }
               style={active ? { background: color, color: readableTextOn(color) } : undefined}
+              // 노트는 누르기 전에 미리 연결해 두어 빨리 열리게 한다.
+              onPointerEnter={member.template === "note" && !active ? () => preloadNote(member.id) : undefined}
               onClick={() => workspace.setView({ type: "tab", id: member.id })}
             >
               <TabIcon template={member.template} className="size-4 shrink-0" style={active ? undefined : { color }} aria-hidden />

@@ -88,7 +88,6 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
       {tab.template === "note" && (
         <NoteEditor
           tabId={tab.id}
-          userId={userId}
           content={workspace.notes[tab.id]}
           members={workspace.members}
           tabs={workspace.tabs}

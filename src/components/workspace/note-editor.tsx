@@ -3,11 +3,10 @@
 import { Popover } from "@base-ui/react/popover";
 import {
   ClientSideSuspense,
-  LiveblocksProvider,
   RoomProvider,
-  useClient,
   useErrorListener,
   useOthers,
+  useRoom,
   useSelf,
   useStatus,
   useThreads,
@@ -20,6 +19,7 @@ import { TableKit } from "@tiptap/extension-table";
 import { NodeSelection } from "@tiptap/pm/state";
 import { CellSelection } from "@tiptap/pm/tables";
 import { Color, FontFamily, TextStyle } from "@tiptap/extension-text-style";
+import { getYjsProviderForRoom } from "@liveblocks/yjs";
 import { EditorContent, type Editor, type JSONContent, useEditor, useEditorState } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
@@ -55,7 +55,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button";
 import type { Member } from "@/hooks/use-workspace";
-import { cursorColor, noteRoomId } from "@/lib/collaboration";
+import { noteRoomId } from "@/lib/collaboration";
 import { HIGHLIGHT_COLORS, NOTE_FONTS, type NoteColor, TEXT_COLORS } from "@/lib/note-format";
 import { isWebHref, tabIdFromHref, tabLinkHref } from "@/lib/note-links";
 import { cn } from "@/lib/utils";
@@ -65,7 +65,6 @@ import { TabIcon } from "./tab-icon";
 
 type NoteEditorProps = {
   tabId: string;
-  userId: string;
   content: JSONContent | undefined;
   members: Member[];
   /** 탭 연결 목록에 보여 줄 탭들 */
@@ -102,68 +101,30 @@ const COMMENT_TEXT = {
   THREAD_COMPOSER_SEND: "보내기",
 };
 
-async function authorize(room?: string) {
-  const response = await fetch("/api/liveblocks-auth", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ room }),
-  });
-  return response.json();
-}
-
 const MembersContext = createContext<Member[]>([]);
 
 type NoteTabs = { tabId: string; tabs: Tab[]; openTab: (tabId: string) => boolean };
 const NoteTabsContext = createContext<NoteTabs>({ tabId: "", tabs: [], openTab: () => false });
 
-export function NoteEditor({ tabId, userId, content, members, tabs, onChange, onOpenTab }: NoteEditorProps) {
-  // 답글 이름을 다시 찾기 전에 최신 목록이 준비되도록 화면 반영 직전에 바꾼다.
-  const membersRef = useRef(members);
-  useLayoutEffect(() => {
-    membersRef.current = members;
-  }, [members]);
-  const myName = members.find((member) => member.userId === userId)?.displayName;
-
-  // 답글에는 사용자 번호만 저장되므로, 화면에 보일 이름은 멤버 목록에서 찾는다.
-  const resolveUsers = useCallback(({ userIds }: { userIds: string[] }) => {
-    return userIds.map((id) => {
-      const member = membersRef.current.find((item) => item.userId === id);
-      // Google 프로필 사진은 다른 사이트에서 깨지는 일이 있어 이름 첫 글자로 표시한다.
-      return { name: member?.displayName ?? "이전 멤버", color: cursorColor(id) };
-    });
-  }, []);
-
+export function NoteEditor({ tabId, content, members, tabs, onChange, onOpenTab }: NoteEditorProps) {
   return (
-    // 커서 이름은 입장 권한에 담겨 있으므로, 내 이름이 바뀌면 다시 입장해 새 이름을 받는다.
-    <LiveblocksProvider key={myName} authEndpoint={authorize} resolveUsers={resolveUsers}>
-      <LiveblocksUiConfig overrides={COMMENT_TEXT}>
-        <MembersContext.Provider value={members}>
-          <NoteTabsContext.Provider value={{ tabId, tabs, openTab: onOpenTab }}>
-            <ReplyNameSync members={members} />
-            <RoomProvider id={noteRoomId(tabId)}>
-              <NoteRoomContent content={content} onChange={onChange} />
-            </RoomProvider>
-          </NoteTabsContext.Provider>
-        </MembersContext.Provider>
-      </LiveblocksUiConfig>
-    </LiveblocksProvider>
+    <LiveblocksUiConfig overrides={COMMENT_TEXT}>
+      <MembersContext.Provider value={members}>
+        <NoteTabsContext.Provider value={{ tabId, tabs, openTab: onOpenTab }}>
+          <RoomProvider id={noteRoomId(tabId)}>
+            <NoteRoomContent content={content} onChange={onChange} />
+          </RoomProvider>
+        </NoteTabsContext.Provider>
+      </MembersContext.Provider>
+    </LiveblocksUiConfig>
   );
-}
-
-/** 멤버 이름이 바뀌면 답글에 저장해 둔 이름을 버리고 다시 찾게 한다. */
-function ReplyNameSync({ members }: { members: Member[] }) {
-  const client = useClient();
-  const names = members.map((member) => `${member.userId}:${member.displayName}`).join();
-  useEffect(() => {
-    client.resolvers.invalidateUsers();
-  }, [client, names]);
-  return null;
 }
 
 type NoteContentProps = Pick<NoteEditorProps, "content" | "onChange">;
 
 function NoteRoomContent({ content, onChange }: NoteContentProps) {
   const [failed, setFailed] = useState(false);
+  const synced = useNoteSynced();
 
   useErrorListener((error) => {
     if (error.context.type === "ROOM_CONNECTION_ERROR") setFailed(true);
@@ -177,11 +138,86 @@ function NoteRoomContent({ content, onChange }: NoteContentProps) {
     );
   }
 
-  // 방 연결이 끝난 뒤 편집기를 만들어야 편집기가 실제 공유 문서와 연결된다.
+  // 공유 문서를 다 받기 전에는 앱을 열 때 받아 둔 백업본을 읽기 전용으로 먼저 보여 준다.
+  // 편집기는 뒤에서 미리 만들어 두었다가, 받기가 끝나면 그 자리에서 바꿔 보여 준다.
   return (
-    <ClientSideSuspense fallback={<p className="px-6 text-muted-foreground">노트를 불러오는 중입니다.</p>}>
-      <CollaborativeEditor content={content} onChange={onChange} />
-    </ClientSideSuspense>
+    <>
+      {!synced && <NotePreview content={content} />}
+      <ClientSideSuspense fallback={null}>
+        <CollaborativeEditor content={content} onChange={onChange} hidden={!synced} />
+      </ClientSideSuspense>
+    </>
+  );
+}
+
+/** 한 번 다 받은 공유 문서는 그 뒤에 내 변경을 보내는 중이어도 받은 것으로 친다. */
+const syncedProviders = new WeakSet<object>();
+
+/** 이 노트의 공유 문서를 서버에서 다 받았는지 돌려준다. */
+function useNoteSynced() {
+  const room = useRoom();
+  // 편집기도 같은 방에서 이 함수를 불러 같은 공유 문서를 쓴다. 미리 연결했다면 이미 받아 둔 문서가 나온다.
+  const provider = getYjsProviderForRoom(room);
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      provider.on("status", onChange);
+      return () => provider.off("status", onChange);
+    },
+    [provider],
+  );
+  const getSynced = () => {
+    if (provider.getStatus() === "synchronized") syncedProviders.add(provider);
+    return syncedProviders.has(provider);
+  };
+  return useSyncExternalStore(subscribe, getSynced, () => false);
+}
+
+/** 본문 기능. 미리보기와 편집기가 같은 모양으로 보이도록 함께 쓴다. */
+function noteExtensions() {
+  return [
+    // 링크는 편집기의 handleClick에서 직접 연다. 탭 연결은 새 창 대신 앱 안에서 이동해야 한다.
+    StarterKit.configure({ undoRedo: false, link: { openOnClick: false } }),
+    // 칸 경계를 끌어 칸 너비를 바꿀 수 있다. 사진을 칸에 넣어 표처럼 늘어놓을 수 있다.
+    TableKit.configure({ table: { resizable: true, cellMinWidth: 48 } }),
+    NoteImage,
+    NoteFile,
+    TextStyle,
+    Color,
+    FontFamily,
+    Highlight.configure({ multicolor: true }),
+    Placeholder.configure({ placeholder: "회의 내용을 적어 보세요" }),
+  ];
+}
+
+function noteLayout(wide: boolean) {
+  return cn(
+    "mx-auto grid w-full flex-1 grid-rows-[auto_1fr] gap-x-6 gap-y-3 px-6 pb-12",
+    wide ? "max-w-260 grid-cols-[minmax(0,45rem)_17.5rem]" : "max-w-180 grid-cols-[minmax(0,1fr)]",
+  );
+}
+
+/** 연결되는 동안 보여 줄 읽기 전용 본문 */
+function NotePreview({ content }: { content: JSONContent | undefined }) {
+  const editor = useEditor({
+    immediatelyRender: false,
+    editable: false,
+    extensions: noteExtensions(),
+    content,
+    editorProps: { attributes: { "aria-label": "노트 내용", class: "note-content outline-none" } },
+  });
+  const wide = useIsWide();
+
+  return (
+    <div className={noteLayout(wide)}>
+      {/* 편집 도구 막대 자리를 같은 높이로 비워 두어, 편집기로 바뀔 때 본문이 움직이지 않게 한다. */}
+      <div className="sticky top-0 z-10 flex min-h-12 items-center border-b border-border/70 bg-background/90 py-1.5 backdrop-blur-sm">
+        <span role="status" className="ml-auto px-2 text-xs text-muted-foreground">
+          편집 준비 중
+        </span>
+      </div>
+      {wide && <div />}
+      <EditorContent editor={editor} className="min-w-0" />
+    </div>
   );
 }
 
@@ -189,7 +225,7 @@ const NOTICE_MS = 6000;
 
 type Upload = (files: File[], position?: number) => void;
 
-function CollaborativeEditor({ content, onChange }: NoteContentProps) {
+function CollaborativeEditor({ content, onChange, hidden }: NoteContentProps & { hidden: boolean }) {
   const [initialContent] = useState(content);
   const noteTabs = useContext(NoteTabsContext);
   const [notice, setNotice] = useState("");
@@ -210,20 +246,7 @@ function CollaborativeEditor({ content, onChange }: NoteContentProps) {
   });
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [
-      liveblocks,
-      // 링크는 아래 handleClick에서 직접 연다. 탭 연결은 새 창 대신 앱 안에서 이동해야 한다.
-      StarterKit.configure({ undoRedo: false, link: { openOnClick: false } }),
-      // 칸 경계를 끌어 칸 너비를 바꿀 수 있다. 사진을 칸에 넣어 표처럼 늘어놓을 수 있다.
-      TableKit.configure({ table: { resizable: true, cellMinWidth: 48 } }),
-      NoteImage,
-      NoteFile,
-      TextStyle,
-      Color,
-      FontFamily,
-      Highlight.configure({ multicolor: true }),
-      Placeholder.configure({ placeholder: "회의 내용을 적어 보세요" }),
-    ],
+    extensions: [liveblocks, ...noteExtensions()],
     onUpdate: ({ editor: current, transaction }) => {
       // 다른 사람의 변경은 그 사람의 화면에서 저장하므로 내 변경만 백업용으로 저장한다.
       if (!transaction.getMeta("y-sync$")?.isChangeOrigin) onChange(current.getJSON());
@@ -291,10 +314,8 @@ function CollaborativeEditor({ content, onChange }: NoteContentProps) {
 
   return (
     <div
-      className={cn(
-        "mx-auto grid w-full flex-1 grid-rows-[auto_1fr] gap-x-6 gap-y-3 px-6 pb-12",
-        wide ? "max-w-260 grid-cols-[minmax(0,45rem)_17.5rem]" : "max-w-180 grid-cols-[minmax(0,1fr)]",
-      )}
+      // 다 받기 전에는 숨겨 둔다. 그동안 위의 미리보기가 같은 자리를 차지한다.
+      className={cn(noteLayout(wide), hidden && "hidden")}
     >
       {editor && (
         <Toolbar
@@ -310,7 +331,10 @@ function CollaborativeEditor({ content, onChange }: NoteContentProps) {
         <>
           <ReplyBubble editor={editor} />
           <FloatingComposer editor={editor} showAttachments={false} />
-          <Threads editor={editor} wide={wide} />
+          {/* 답글 목록은 따로 받는다. 본문이 답글을 기다리지 않게 한다. */}
+          <ClientSideSuspense fallback={wide ? <div /> : null}>
+            <Threads editor={editor} wide={wide} />
+          </ClientSideSuspense>
         </>
       )}
     </div>
@@ -558,7 +582,11 @@ function Toolbar({ editor, notice, onUpload, onNotice }: ToolbarProps) {
       <FilePickerTool label="사진 넣기" icon={ImagePlus} accept="image/*" onPick={onUpload} />
       <FilePickerTool label="파일 첨부" icon={Paperclip} onPick={onUpload} />
       <span role="status" className={cn("ml-auto text-sm", notice ? "text-foreground" : "text-muted-foreground")}>
-        {notice || <ConnectionStatus />}
+        {notice || (
+          <ClientSideSuspense fallback={<>연결 중</>}>
+            <ConnectionStatus />
+          </ClientSideSuspense>
+        )}
       </span>
       {state.table && <TableTools editor={editor} header={state.header} merge={state.merge} />}
     </div>

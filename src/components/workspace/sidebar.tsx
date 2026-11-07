@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { resolveTabColor, type Tab, trashedRoots, visibleChildren } from "@/lib/workspace";
 import logo from "../../../assets/logo/caps-lockup-on-white.png";
 import { NameDialog } from "./name-dialog";
+import { usePreloadNote } from "./note-connection";
 import { TabIcon } from "./tab-icon";
 
 // 아래쪽 메뉴는 탭 목록보다 한 단계 연하게 두어 시선이 탭에 먼저 가게 한다.
@@ -155,6 +156,9 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
   const active = view.type === "tab" && view.id === tab.id;
   const color = resolveTabColor(workspace.tabs, tab.id);
   const pinned = tab.pinnedAt !== null;
+  const preloadNote = usePreloadNote();
+  // 노트는 누르기 전에 미리 연결해 두어 빨리 열리게 한다.
+  const preload = tab.template === "note" && !active ? () => preloadNote(tab.id) : undefined;
 
   return (
     <div
@@ -170,6 +174,8 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
       <button
         aria-current={active ? "page" : undefined}
         className={cn("focus-inset flex min-h-9 min-w-0 flex-1 items-center gap-2.5 px-2 text-left text-sm", active && "font-medium")}
+        onPointerEnter={preload}
+        onFocus={preload}
         onClick={() => {
           workspace.setView({ type: "tab", id: tab.id });
           onPicked();
