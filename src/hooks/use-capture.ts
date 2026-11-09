@@ -9,6 +9,9 @@ type RoundRow = {
   closes_at: string | null;
   dates: string[];
   activities: string[];
+  notice: string;
+  prizes: string[];
+  prize_note: string;
 };
 
 type ApplicationRow = {
@@ -23,6 +26,9 @@ type ApplicationRow = {
   drinking: string;
   activities: string[];
   other_activity: string;
+  first_choice: string;
+  second_choice: string;
+  prize: string;
   created_at: string;
 };
 
@@ -51,6 +57,9 @@ function toApplication(row: ApplicationRow): CaptureApplication {
     drinking: row.drinking,
     activities: row.activities,
     otherActivity: row.other_activity,
+    firstChoice: row.first_choice,
+    secondChoice: row.second_choice,
+    prize: row.prize,
     createdAt: row.created_at,
   };
 }
@@ -81,7 +90,7 @@ export function useCapture(tabId: string, isAdmin: boolean) {
   const fetchRound = useCallback(async () => {
     const { data, error: failure } = await supabase
       .from("capture_rounds")
-      .select("tab_id, public_token, is_open, closes_at, dates, activities")
+      .select("tab_id, public_token, is_open, closes_at, dates, activities, notice, prizes, prize_note")
       .eq("tab_id", tabId)
       .maybeSingle();
     if (failure) return report(failure);
@@ -94,6 +103,9 @@ export function useCapture(tabId: string, isAdmin: boolean) {
         closesAt: row.closes_at,
         dates: row.dates,
         activities: row.activities,
+        notice: row.notice,
+        prizes: row.prizes,
+        prizeNote: row.prize_note,
       },
     );
   }, [supabase, tabId, report]);
@@ -101,7 +113,7 @@ export function useCapture(tabId: string, isAdmin: boolean) {
   const fetchApplications = useCallback(async () => {
     const { data, error: failure } = await supabase
       .from("capture_applications")
-      .select("id, name, student_id, cohort, major, preferred_teammate, dates, participation, drinking, activities, other_activity, created_at")
+      .select("id, name, student_id, cohort, major, preferred_teammate, dates, participation, drinking, activities, other_activity, first_choice, second_choice, prize, created_at")
       .eq("tab_id", tabId)
       .order("created_at");
     if (failure) return report(failure);
@@ -163,7 +175,9 @@ export function useCapture(tabId: string, isAdmin: boolean) {
     teams,
     viewerIds,
     error,
-    updateRound(change: Partial<Pick<CaptureRound, "isOpen" | "closesAt" | "dates" | "activities">>) {
+    updateRound(
+      change: Partial<Pick<CaptureRound, "isOpen" | "closesAt" | "dates" | "activities" | "notice" | "prizes" | "prizeNote">>,
+    ) {
       setRound((current) => current && { ...current, ...change });
       supabase
         .from("capture_rounds")
@@ -172,6 +186,9 @@ export function useCapture(tabId: string, isAdmin: boolean) {
           ...("closesAt" in change ? { closes_at: change.closesAt } : {}),
           ...("dates" in change ? { dates: change.dates } : {}),
           ...("activities" in change ? { activities: change.activities } : {}),
+          ...("notice" in change ? { notice: change.notice } : {}),
+          ...("prizes" in change ? { prizes: change.prizes } : {}),
+          ...("prizeNote" in change ? { prize_note: change.prizeNote } : {}),
         })
         .eq("tab_id", tabId)
         .then(({ error: failure }) => report(failure));
@@ -204,6 +221,7 @@ export function useCapture(tabId: string, isAdmin: boolean) {
           created_at: createdAt,
         })
         .then(({ error: failure }) => report(failure));
+      return id;
     },
     setTeamMembers(teamId: string, applicationIds: string[], leaderId: string | null) {
       setTeams((current) =>

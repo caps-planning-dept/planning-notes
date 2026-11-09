@@ -1,13 +1,14 @@
 "use client";
 
 import { toPng } from "html-to-image";
-import { Check, Crown, Download, Info, Trash2, UserPlus, X } from "lucide-react";
+import { Check, Crown, Download, Info, Undo2, UserPlus, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -18,11 +19,14 @@ import {
   assignedDatesByStudent,
   type CaptureApplication,
   type CaptureFilter,
+  type CaptureTeam,
   DRINKING_OPTIONS,
   EMPTY_FILTER,
   filterApplicants,
   formatRoundDate,
   groupApplicants,
+  hasLegacyAnswers,
+  hasRankedAnswers,
   numberTeams,
   OTHER_ACTIVITY,
   PARTICIPATION_OPTIONS,
@@ -87,6 +91,9 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
   const [note, setNote] = useState("");
   const [opened, setOpened] = useState<Applicant | null>(null);
   const [imageError, setImageError] = useState("");
+  // 방금 만든 조. 바로 되돌릴 수 있게 안내를 띄운다.
+  const [justCreated, setJustCreated] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<(CaptureTeam & { number: number }) | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
 
   const allApplicants = useMemo(() => groupApplicants(capture.applications), [capture.applications]);
@@ -116,9 +123,20 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
     return !submissions.some((item) => item.dates.includes(eventDate));
   });
 
+  const legacy = hasLegacyAnswers(capture.applications);
+  const ranked = hasRankedAnswers(capture.applications);
   const board = teamBoard(capture.teams, capture.applications);
+  const numbered = numberTeams(capture.teams);
+  const createdTeam = numbered.find((team) => team.id === justCreated);
+
+  function cancelTeam(teamId: string) {
+    capture.deleteTeam(teamId);
+    if (teamId === justCreated) setJustCreated(null);
+    setCancelling(null);
+  }
   const nameOf = (id: string) => byApplicationId.get(id)?.name ?? "삭제된 신청";
-  const dateTeams = numberTeams(capture.teams).filter((team) => team.eventDate === eventDate);
+  // 조 만들기에서 고른 날짜와 상관없이 모든 날짜의 조를 날짜순으로 보여 준다.
+  const teamDates = [...new Set(numbered.map((team) => team.eventDate))];
 
   function togglePerson(applicationId: string) {
     setSelectedIds((current) =>
@@ -129,7 +147,7 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
   }
 
   function createTeam() {
-    capture.addTeam(eventDate, teamActivity.trim(), validSelectedIds, note.trim());
+    setJustCreated(capture.addTeam(eventDate, teamActivity.trim(), validSelectedIds, note.trim()));
     setSelectedIds([]);
     setActivity(null);
     setNote("");
@@ -164,22 +182,37 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
         />
         <ChipGroup
           label="활동"
-          options={plain([...(round?.activities ?? []), OTHER_ACTIVITY])}
+          options={plain([...(round?.activities ?? []), ...(legacy ? [OTHER_ACTIVITY] : [])])}
           selected={filter.activities}
           onChange={(values) => setFilter({ ...filter, activities: values })}
         />
-        <ChipGroup
-          label="횟수"
-          options={plain(PARTICIPATION_OPTIONS)}
-          selected={filter.participation}
-          onChange={(values) => setFilter({ ...filter, participation: values })}
-        />
-        <ChipGroup
-          label="음주"
-          options={plain(DRINKING_OPTIONS)}
-          selected={filter.drinking}
-          onChange={(values) => setFilter({ ...filter, drinking: values })}
-        />
+        {ranked && (
+          <label className="flex min-h-8 items-center gap-2 pl-14 text-sm">
+            <input
+              type="checkbox"
+              className="size-4"
+              checked={filter.firstOnly}
+              onChange={(e) => setFilter({ ...filter, firstOnly: e.target.checked })}
+            />
+            고른 활동을 1순위로 적은 사람만
+          </label>
+        )}
+        {legacy && (
+          <>
+            <ChipGroup
+              label="횟수"
+              options={plain(PARTICIPATION_OPTIONS)}
+              selected={filter.participation}
+              onChange={(values) => setFilter({ ...filter, participation: values })}
+            />
+            <ChipGroup
+              label="음주"
+              options={plain(DRINKING_OPTIONS)}
+              selected={filter.drinking}
+              onChange={(values) => setFilter({ ...filter, drinking: values })}
+            />
+          </>
+        )}
       </div>
 
       <section className="flex flex-col gap-3">
@@ -210,6 +243,12 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
                     {isSelected && <Check className="size-4 shrink-0" aria-hidden />}
                     <span className="min-w-0">
                       <span className="block truncate">{applicant.name}</span>
+                      {latest.firstChoice && (
+                        <span className="block truncate text-xs opacity-80">
+                          1 {latest.firstChoice}
+                          {latest.secondChoice && ` · 2 ${latest.secondChoice}`}
+                        </span>
+                      )}
                       {assignedDates.length > 0 && (
                         <span className="block text-xs opacity-80">{assignedDates.map(formatRoundDate).join(", ")} 배정</span>
                       )}
@@ -279,6 +318,15 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
             <Button variant="ghost" onClick={() => setSelectedIds([])}>선택 해제</Button>
           )}
         </div>
+        {createdTeam && (
+          <p className="flex flex-wrap items-center gap-2 text-sm" role="status">
+            {formatRoundDate(createdTeam.eventDate)} {createdTeam.number}조({createdTeam.activity})를 만들었습니다.
+            <Button variant="outline" size="sm" onClick={() => cancelTeam(createdTeam.id)}>
+              <Undo2 data-icon="inline-start" />
+              되돌리기
+            </Button>
+          </p>
+        )}
         {selectedPeople.length > 0 && (
           <p className="text-sm text-muted-foreground">처음 고른 {selectedPeople[0].name} 님이 조장이 됩니다. 만든 뒤 바꿀 수 있습니다.</p>
         )}
@@ -290,75 +338,80 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="font-medium">{formatRoundDate(eventDate)} 조</h2>
-        {dateTeams.length === 0 ? (
-          <p className="py-4 text-center text-muted-foreground">이 날짜에 만든 조가 없습니다.</p>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {dateTeams.map((team) => (
-              <article key={team.id} className="flex flex-col gap-3 rounded-md border p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-medium">
-                    {team.number}조 · {team.activity}
-                    {team.note && ` · ${team.note}`} · {team.applicationIds.length}명
-                  </h3>
-                  <Button variant="ghost" size="icon" aria-label={`${team.activity} 조 삭제`} onClick={() => capture.deleteTeam(team.id)}>
-                    <Trash2 />
-                  </Button>
-                </div>
-                <ul className="flex flex-wrap gap-1.5">
-                  {team.applicationIds.map((id) => {
-                    const isLeader = team.leaderId === id;
-                    return (
-                      <li
-                        key={id}
-                        className={cn(
-                          "flex items-center rounded-full py-0.5 pr-1 pl-1 text-sm",
-                          isLeader ? "bg-(--tab) text-(--on-tab)" : "bg-muted",
-                        )}
-                      >
-                        <button
-                          aria-pressed={isLeader}
-                          aria-label={isLeader ? `${nameOf(id)}, 현재 조장` : `${nameOf(id)} 님을 조장으로 지정`}
-                          title={isLeader ? "현재 조장" : "눌러서 조장으로 지정"}
-                          className="focus-inset flex min-h-6 items-center gap-1 rounded-full px-2"
-                          onClick={() => capture.setTeamMembers(team.id, team.applicationIds, id)}
-                        >
-                          {isLeader && <Crown className="size-3" aria-hidden />}
-                          {nameOf(id)}
-                        </button>
-                        <button
-                          aria-label={`${nameOf(id)} 빼기`}
-                          className="focus-inset flex size-6 items-center justify-center rounded-full hover:bg-background/30"
-                          onClick={() => {
-                            const next = removeTeamMember(team, id);
-                            capture.setTeamMembers(team.id, next.applicationIds, next.leaderId);
-                          }}
-                        >
-                          <X className="size-3" aria-hidden />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {validSelectedIds.length > 0 && (
-                  <Button
-                    variant="outline"
-                    className="w-fit"
-                    onClick={() => {
-                      const next = addTeamMembers(team, validSelectedIds, capture.applications);
-                      capture.setTeamMembers(team.id, next.applicationIds, next.leaderId);
-                      setSelectedIds([]);
-                    }}
-                  >
-                    <UserPlus data-icon="inline-start" />
-                    선택한 {validSelectedIds.length}명 넣기
-                  </Button>
-                )}
-              </article>
-            ))}
-          </div>
+        <h2 className="font-medium">만든 조 {numbered.length}개</h2>
+        {numbered.length === 0 && (
+          <p className="py-4 text-center text-muted-foreground">아직 만든 조가 없습니다.</p>
         )}
+        {teamDates.map((date) => (
+          <div key={date} className="flex flex-col gap-2">
+            <h3 className="text-sm font-medium text-muted-foreground">{formatRoundDate(date)}</h3>
+            <div className="grid gap-3 md:grid-cols-2">
+              {numbered.filter((team) => team.eventDate === date).map((team) => (
+                <article key={team.id} className="flex flex-col gap-3 rounded-md border p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-medium">
+                      {team.number}조 · {team.activity}
+                      {team.note && ` · ${team.note}`} · {team.applicationIds.length}명
+                    </h4>
+                    <Button variant="outline" size="sm" className="shrink-0" onClick={() => setCancelling(team)}>
+                      <X data-icon="inline-start" />
+                      편성 취소
+                    </Button>
+                  </div>
+                  <ul className="flex flex-wrap gap-1.5">
+                    {team.applicationIds.map((id) => {
+                      const isLeader = team.leaderId === id;
+                      return (
+                        <li
+                          key={id}
+                          className={cn(
+                            "flex items-center rounded-full py-0.5 pr-1 pl-1 text-sm",
+                            isLeader ? "bg-(--tab) text-(--on-tab)" : "bg-muted",
+                          )}
+                        >
+                          <button
+                            aria-pressed={isLeader}
+                            aria-label={isLeader ? `${nameOf(id)}, 현재 조장` : `${nameOf(id)} 님을 조장으로 지정`}
+                            title={isLeader ? "현재 조장" : "눌러서 조장으로 지정"}
+                            className="focus-inset flex min-h-6 items-center gap-1 rounded-full px-2"
+                            onClick={() => capture.setTeamMembers(team.id, team.applicationIds, id)}
+                          >
+                            {isLeader && <Crown className="size-3" aria-hidden />}
+                            {nameOf(id)}
+                          </button>
+                          <button
+                            aria-label={`${nameOf(id)} 빼기`}
+                            className="focus-inset flex size-6 items-center justify-center rounded-full hover:bg-background/30"
+                            onClick={() => {
+                              const next = removeTeamMember(team, id);
+                              capture.setTeamMembers(team.id, next.applicationIds, next.leaderId);
+                            }}
+                          >
+                            <X className="size-3" aria-hidden />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {validSelectedIds.length > 0 && (
+                    <Button
+                      variant="outline"
+                      className="w-fit"
+                      onClick={() => {
+                        const next = addTeamMembers(team, validSelectedIds, capture.applications);
+                        capture.setTeamMembers(team.id, next.applicationIds, next.leaderId);
+                        setSelectedIds([]);
+                      }}
+                    >
+                      <UserPlus data-icon="inline-start" />
+                      선택한 {validSelectedIds.length}명 넣기
+                    </Button>
+                  )}
+                </article>
+              ))}
+            </div>
+          </div>
+        ))}
       </section>
 
       {board.length > 0 && (
@@ -376,6 +429,28 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
           </div>
         </section>
       )}
+
+      <Dialog open={cancelling !== null} onOpenChange={(open) => !open && setCancelling(null)}>
+        <DialogContent>
+          {cancelling && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{cancelling.number}조 편성을 취소할까요?</DialogTitle>
+                <DialogDescription>
+                  {formatRoundDate(cancelling.eventDate)} {cancelling.activity} 조를 없앱니다.{" "}
+                  {cancelling.applicationIds.length > 0 &&
+                    `${cancelling.applicationIds.map(nameOf).join(", ")} 님은 신청은 그대로 남고 배정만 풀립니다. `}
+                  뒤 조들의 번호는 하나씩 당겨집니다.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCancelling(null)}>그대로 두기</Button>
+                <Button variant="destructive" onClick={() => cancelTeam(cancelling.id)}>편성 취소</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={opened !== null} onOpenChange={(open) => !open && setOpened(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
@@ -406,13 +481,21 @@ function ApplicationDetail({ application, label }: { application: CaptureApplica
   const details: [string, string][] = [
     ["신청 시간", timeFormat.format(new Date(application.createdAt))],
     ["기수", application.cohort],
-    ["전공", application.major],
+    ["학과", application.major],
     ["함께 조", application.preferredTeammate || "없음"],
     ["희망 날짜", application.dates.map(formatRoundDate).join(", ")],
-    ["희망 횟수", application.participation],
-    ["음주 여부", application.drinking],
-    ["희망 활동", application.activities.join(", ") || "없음"],
-    ["기타", application.otherActivity || "없음"],
+    ...(application.firstChoice
+      ? ([
+          ["1순위", application.firstChoice],
+          ["2순위", application.secondChoice || "없음"],
+        ] as [string, string][])
+      : ([
+          ["희망 횟수", application.participation || "없음"],
+          ["음주 여부", application.drinking || "없음"],
+          ["희망 활동", application.activities.join(", ") || "없음"],
+          ["기타", application.otherActivity || "없음"],
+        ] as [string, string][])),
+    ...(application.prize ? ([["이벤트 상품", application.prize]] as [string, string][]) : []),
   ];
   return (
     <section className="flex flex-col gap-2">

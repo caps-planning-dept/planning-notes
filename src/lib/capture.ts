@@ -1,6 +1,8 @@
 export const PARTICIPATION_OPTIONS = ["1회", "2회", "3회 이상"];
 export const DRINKING_OPTIONS = ["음주", "비음주", "상관없음"];
 export const OTHER_ACTIVITY = "기타";
+export const OTHER_PRIZE = "기타";
+export const OTHER_PRIZE_PREFIX = "기타: ";
 
 export type CaptureRound = {
   tabId: string;
@@ -9,6 +11,9 @@ export type CaptureRound = {
   closesAt: string | null;
   dates: string[];
   activities: string[];
+  notice: string;
+  prizes: string[];
+  prizeNote: string;
 };
 
 export type CaptureApplication = {
@@ -23,6 +28,9 @@ export type CaptureApplication = {
   drinking: string;
   activities: string[];
   otherActivity: string;
+  firstChoice: string;
+  secondChoice: string;
+  prize: string;
   createdAt: string;
 };
 
@@ -41,9 +49,17 @@ export type CaptureFilter = {
   activities: string[];
   participation: string[];
   drinking: string[];
+  /** 켜면 활동을 1순위로 고른 사람만 찾는다. */
+  firstOnly: boolean;
 };
 
-export const EMPTY_FILTER: CaptureFilter = { dates: [], activities: [], participation: [], drinking: [] };
+export const EMPTY_FILTER: CaptureFilter = {
+  dates: [],
+  activities: [],
+  participation: [],
+  drinking: [],
+  firstOnly: false,
+};
 
 export type Applicant = {
   studentId: string;
@@ -79,14 +95,19 @@ export function mergedActivities(applicant: Applicant): { activities: string[]; 
 /**
  * 항목 안에서는 하나라도 해당하면, 항목 사이에서는 모두 해당해야 통과한다.
  * 날짜와 활동은 모든 신청을 합쳐 보고, 횟수와 음주 여부는 최신 신청을 기준으로 한다.
+ * 1순위만 보기를 켜면 활동은 어느 신청에서든 1순위로 고른 테마만 본다.
  */
 export function filterApplicants(applicants: Applicant[], filter: CaptureFilter): Applicant[] {
   return applicants.filter((applicant) => {
     const latest = applicant.applications[0];
     const { activities, others } = mergedActivities(applicant);
+    const firstChoices = applicant.applications.map((item) => item.firstChoice).filter(Boolean);
     return (
       matches(filter.dates, mergedDates(applicant)) &&
-      matches(filter.activities, others.length > 0 ? [...activities, OTHER_ACTIVITY] : activities) &&
+      matches(
+        filter.activities,
+        filter.firstOnly ? firstChoices : others.length > 0 ? [...activities, OTHER_ACTIVITY] : activities,
+      ) &&
       matches(filter.participation, [latest.participation]) &&
       matches(filter.drinking, [latest.drinking])
     );
@@ -190,6 +211,22 @@ export function summarizeApplications(applications: CaptureApplication[], round:
         count: peopleWith((item) => item.activities.includes(activity)),
       })),
       { label: OTHER_ACTIVITY, count: peopleWith((item) => item.otherActivity.trim() !== "") },
+    ].filter((row) => row.label !== OTHER_ACTIVITY || row.count > 0),
+    // 순위와 상품은 한 사람에 한 값이므로 최신 신청을 기준으로 센다.
+    byFirstChoice: round.activities.map((activity) => ({
+      label: activity,
+      count: applicants.filter((applicant) => applicant.applications[0].firstChoice === activity).length,
+    })),
+    byPrize: [
+      ...round.prizes.map((prize) => ({
+        label: prize,
+        count: applicants.filter((applicant) => applicant.applications[0].prize === prize).length,
+      })),
+      {
+        label: OTHER_PRIZE,
+        count: applicants.filter((applicant) => applicant.applications[0].prize.startsWith(OTHER_PRIZE_PREFIX)).length,
+      },
+      { label: "고르지 않음", count: applicants.filter((applicant) => applicant.applications[0].prize === "").length },
     ],
   };
 }
@@ -216,8 +253,12 @@ export type ApplicationDraft = {
   cohort: string;
   major: string;
   dates: string[];
-  participation: string;
-  drinking: string;
+  firstChoice: string;
+  secondChoice: string;
+  /** 회차에 정한 활동 테마 수. 2개 이상이면 2순위도 받는다. */
+  activityCount: number;
+  prize: string;
+  prizeOther: string;
 };
 
 /** 신청 폼의 입력 오류를 항목별 문구로 돌려준다. */
@@ -226,9 +267,34 @@ export function validateApplication(draft: ApplicationDraft): Record<string, str
   if (!draft.name.trim()) errors.name = "이름을 입력하세요.";
   if (!/^[0-9]{6,12}$/.test(draft.studentId.trim())) errors.studentId = "학번을 숫자로 입력하세요.";
   if (!draft.cohort.trim()) errors.cohort = "기수를 입력하세요.";
-  if (!draft.major.trim()) errors.major = "전공을 입력하세요.";
+  if (!draft.major.trim()) errors.major = "학과를 입력하세요.";
   if (draft.dates.length === 0) errors.dates = "참여 희망 날짜를 하나 이상 고르세요.";
-  if (!draft.participation) errors.participation = "희망 참여 횟수를 고르세요.";
-  if (!draft.drinking) errors.drinking = "음주 여부를 고르세요.";
+  if (draft.activityCount > 0 && !draft.firstChoice) errors.firstChoice = "1순위 테마를 고르세요.";
+  if (draft.activityCount > 1 && !draft.secondChoice) errors.secondChoice = "2순위 테마를 고르세요.";
+  if (draft.secondChoice && draft.secondChoice === draft.firstChoice) errors.secondChoice = "1순위와 다른 테마를 고르세요.";
+  if (draft.prize === OTHER_PRIZE && !draft.prizeOther.trim()) errors.prize = "원하는 상품을 적어 주세요.";
   return errors;
+}
+
+/** 고른 이벤트 상품을 저장할 값으로 바꾼다. 기타는 '기타: 내용'으로 저장한다. */
+export function prizeValue(prize: string, other: string): string {
+  return prize === OTHER_PRIZE ? `${OTHER_PRIZE_PREFIX}${other.trim()}` : prize;
+}
+
+/** 공지의 **굵게** 표시를 나눈다. 홀수 번째 조각이 굵은 글씨다. */
+export function noticeSegments(line: string): { text: string; bold: boolean }[] {
+  return line
+    .split("**")
+    .map((text, index) => ({ text, bold: index % 2 === 1 }))
+    .filter((segment) => segment.text !== "");
+}
+
+/** 시즌1처럼 희망 횟수와 음주 여부를 받은 신청이 있는지 본다. */
+export function hasLegacyAnswers(applications: CaptureApplication[]): boolean {
+  return applications.some((item) => item.participation !== "" || item.drinking !== "");
+}
+
+/** 1·2순위를 받은 신청이 있는지 본다. */
+export function hasRankedAnswers(applications: CaptureApplication[]): boolean {
+  return applications.some((item) => item.firstChoice !== "");
 }

@@ -10,8 +10,11 @@ export const metadata: Metadata = {
 
 type PublicForm = {
   title: string;
+  notice?: string;
   dates: string[];
   activities: string[];
+  prizes?: string[];
+  prizeNote?: string;
   closesAt: string | null;
   isOpen: boolean;
 };
@@ -37,5 +40,15 @@ export default async function ApplyPage({ params }: PageProps<"/apply/[token]">)
   if (!form) return <Notice title="신청 링크를 찾을 수 없습니다" body="기획부에 올바른 링크를 문의해 주세요." />;
   if (!form.isOpen) return <Notice title="신청을 받고 있지 않습니다" body="신청 기간을 기획부에 문의해 주세요." />;
 
-  return <ApplyForm token={token} title={form.title} dates={form.dates} activities={form.activities} />;
+  return (
+    <ApplyForm
+      token={token}
+      title={form.title}
+      notice={form.notice ?? ""}
+      dates={form.dates}
+      activities={form.activities}
+      prizes={form.prizes ?? []}
+      prizeNote={form.prizeNote ?? ""}
+    />
+  );
 }

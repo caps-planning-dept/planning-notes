@@ -13,6 +13,8 @@ import {
   removeTeamMember,
   summarizeApplications,
   teamBoard,
+  noticeSegments,
+  prizeValue,
   validateApplication,
 } from "./capture";
 
@@ -29,6 +31,9 @@ function application(id: string, extra: Partial<CaptureApplication> = {}): Captu
     drinking: "상관없음",
     activities: [],
     otherActivity: "",
+    firstChoice: "",
+    secondChoice: "",
+    prize: "",
     createdAt: "2026-09-01T00:00:00Z",
     ...extra,
   };
@@ -151,6 +156,9 @@ describe("신청 현황 요약", () => {
     closesAt: null,
     dates: ["2026-11-16", "2026-11-17"],
     activities: ["보드게임"],
+    notice: "",
+    prizes: ["커피"],
+    prizeNote: "",
   };
 
   it("중복 신청자는 한 명으로 세고 여러 날 신청자를 구분한다", () => {
@@ -168,6 +176,39 @@ describe("신청 현황 요약", () => {
       { label: "보드게임", count: 1 },
       { label: "기타", count: 1 },
     ]);
+  });
+
+  it("기타를 적은 사람이 없으면 활동표에서 기타 줄을 뺀다", () => {
+    const summary = summarizeApplications([application("a", { activities: ["보드게임"] })], round);
+    expect(summary.byActivity.map((row) => row.label)).toEqual(["보드게임"]);
+  });
+
+  it("1순위와 상품은 최신 신청 기준으로 한 사람을 한 번 센다", () => {
+    const summary = summarizeApplications(
+      [
+        application("a1", { studentId: "1", firstChoice: "보드게임", prize: "커피", createdAt: "2026-11-01T00:00:00Z" }),
+        application("a2", { studentId: "1", firstChoice: "보드게임", prize: "기타: 책", createdAt: "2026-11-02T00:00:00Z" }),
+        application("b", { studentId: "2", firstChoice: "보드게임" }),
+      ],
+      round,
+    );
+    expect(summary.byFirstChoice).toEqual([{ label: "보드게임", count: 2 }]);
+    expect(summary.byPrize).toEqual([
+      { label: "커피", count: 0 },
+      { label: "기타", count: 1 },
+      { label: "고르지 않음", count: 1 },
+    ]);
+  });
+});
+
+describe("1순위만 보기", () => {
+  const a = application("a", { activities: ["보드게임", "맛집"], firstChoice: "보드게임", secondChoice: "맛집" });
+  const b = application("b", { activities: ["맛집", "보드게임"], firstChoice: "맛집", secondChoice: "보드게임" });
+
+  it("끄면 1·2순위 어느 쪽이든 찾고, 켜면 1순위만 찾는다", () => {
+    const filter = { ...EMPTY_FILTER, activities: ["보드게임"] };
+    expect(filtered([a, b], filter)).toEqual(["a", "b"]);
+    expect(filtered([a, b], { ...filter, firstOnly: true })).toEqual(["a"]);
   });
 });
 
@@ -202,8 +243,11 @@ describe("신청 폼 검사", () => {
     cohort: "1기",
     major: "예시학과",
     dates: ["2026-09-27"],
-    participation: "1회",
-    drinking: "음주",
+    firstChoice: "보드게임",
+    secondChoice: "맛집",
+    activityCount: 2,
+    prize: "",
+    prizeOther: "",
   };
 
   it("올바른 입력은 오류가 없다", () => {
@@ -214,11 +258,39 @@ describe("신청 폼 검사", () => {
     const errors = validateApplication({ ...valid, studentId: "abc", dates: [] });
     expect(Object.keys(errors).sort()).toEqual(["dates", "studentId"]);
   });
+
+  it("테마가 2개 이상이면 서로 다른 1·2순위를 받는다", () => {
+    expect(validateApplication({ ...valid, secondChoice: "" })).toHaveProperty("secondChoice");
+    expect(validateApplication({ ...valid, secondChoice: "보드게임" })).toHaveProperty("secondChoice");
+    expect(validateApplication({ ...valid, firstChoice: "" })).toHaveProperty("firstChoice");
+  });
+
+  it("테마가 1개면 1순위만, 없으면 순위를 받지 않는다", () => {
+    expect(validateApplication({ ...valid, secondChoice: "", activityCount: 1 })).toEqual({});
+    expect(validateApplication({ ...valid, firstChoice: "", secondChoice: "", activityCount: 0 })).toEqual({});
+  });
+
+  it("상품은 고르지 않아도 되지만, 기타를 골랐다면 내용을 적어야 한다", () => {
+    expect(validateApplication({ ...valid, prize: "기타" })).toHaveProperty("prize");
+    expect(validateApplication({ ...valid, prize: "기타", prizeOther: "책" })).toEqual({});
+    expect(prizeValue("기타", " 책 ")).toBe("기타: 책");
+    expect(prizeValue("커피", "무시")).toBe("커피");
+  });
+});
+
+describe("공지 굵게 표시", () => {
+  it("**로 감싼 부분만 굵게 나눈다", () => {
+    expect(noticeSegments("일시: **11/16** 부터")).toEqual([
+      { text: "일시: ", bold: false },
+      { text: "11/16", bold: true },
+      { text: " 부터", bold: false },
+    ]);
+  });
 });
 
 describe("조에 사람 더하기", () => {
   const application = (id: string, studentId: string) =>
-    ({ id, studentId, name: id, cohort: "", major: "", preferredTeammate: "", dates: [], participation: "", drinking: "", activities: [], otherActivity: "", createdAt: "" }) as CaptureApplication;
+    ({ id, studentId, name: id, cohort: "", major: "", preferredTeammate: "", dates: [], participation: "", drinking: "", activities: [], otherActivity: "", firstChoice: "", secondChoice: "", prize: "", createdAt: "" }) as CaptureApplication;
   const team = (applicationIds: string[], leaderId: string | null) =>
     ({ id: "t", eventDate: "2026-12-01", activity: "", applicationIds, leaderId, note: "", createdAt: "" }) as CaptureTeam;
 

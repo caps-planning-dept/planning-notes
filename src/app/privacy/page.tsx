@@ -52,9 +52,10 @@ export default function PrivacyPage() {
                 <tr>
                   <td className="py-2 pr-4 whitespace-nowrap">캡처 신청자</td>
                   <td className="py-2 pr-4">
-                    이름, 학번, 기수, 전공, 함께 조를 하고 싶은 사람, 희망 날짜, 희망 횟수, 음주 여부, 희망 활동
+                    이름, 학번, 기수, 학과, 함께 조를 하고 싶은 사람, 희망 날짜, 희망 활동과 순위, 이벤트 경품 선택(회차에
+                    따라 희망 횟수, 음주 여부)
                   </td>
-                  <td className="py-2">캡처 조 편성과 안내</td>
+                  <td className="py-2">캡처 조 편성과 안내, 이벤트 경품 전달</td>
                 </tr>
               </tbody>
             </table>

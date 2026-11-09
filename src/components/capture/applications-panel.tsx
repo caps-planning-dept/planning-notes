@@ -5,6 +5,8 @@ import type { Capture } from "@/hooks/use-capture";
 import {
   formatRoundDate,
   groupApplicants,
+  hasLegacyAnswers,
+  hasRankedAnswers,
   mergedActivities,
   mergedDates,
   summarizeApplications,
@@ -57,10 +59,26 @@ export function ApplicationsPanel({ capture }: { capture: Capture }) {
     [applications],
   );
 
-  if (!summary) return null;
+  if (!summary || !round) return null;
   if (applications.length === 0) {
     return <p className="py-10 text-center text-muted-foreground">아직 신청이 없습니다. 설정에서 신청을 열고 링크를 공유해 보세요.</p>;
   }
+
+  const legacy = hasLegacyAnswers(applications);
+  const ranked = hasRankedAnswers(applications);
+  const showPrize = round.prizes.length > 0 || applications.some((item) => item.prize !== "");
+  const columns = [
+    "이름",
+    "학번",
+    "기수",
+    "학과",
+    "희망 날짜",
+    ...(legacy ? ["횟수", "음주"] : []),
+    ...(ranked ? ["1순위", "2순위"] : []),
+    ...(legacy ? ["희망 활동"] : []),
+    ...(showPrize ? ["이벤트 상품"] : []),
+    "신청 시간",
+  ];
 
   const stats = [
     { label: "신청자", value: `${summary.people}명` },
@@ -82,7 +100,9 @@ export function ApplicationsPanel({ capture }: { capture: Capture }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <CountTable title="날짜별 인원" rows={summary.byDate} />
-        <CountTable title="활동별 인원" rows={summary.byActivity} />
+        {ranked && <CountTable title="1순위 테마별 인원" rows={summary.byFirstChoice} />}
+        <CountTable title={ranked ? "1·2순위 합친 테마별 인원" : "활동별 인원"} rows={summary.byActivity} />
+        {showPrize && <CountTable title="이벤트 상품별 인원" rows={summary.byPrize} />}
       </div>
 
       <section className="flex flex-col gap-2">
@@ -91,7 +111,7 @@ export function ApplicationsPanel({ capture }: { capture: Capture }) {
           <table className="w-full min-w-225 border-collapse text-sm">
             <thead>
               <tr>
-                {["이름", "학번", "기수", "전공", "희망 날짜", "횟수", "음주", "희망 활동", "신청 시간"].map((label) => (
+                {columns.map((label) => (
                   <th key={label} scope="col" className={heading}>{label}</th>
                 ))}
               </tr>
@@ -112,9 +132,20 @@ export function ApplicationsPanel({ capture }: { capture: Capture }) {
                     <td className={`${cell} whitespace-nowrap`}>{latest.cohort}</td>
                     <td className={cell}>{latest.major}</td>
                     <td className={cell}>{mergedDates(applicant).map(formatRoundDate).join(", ")}</td>
-                    <td className={`${cell} whitespace-nowrap`}>{latest.participation}</td>
-                    <td className={`${cell} whitespace-nowrap`}>{latest.drinking}</td>
-                    <td className={cell}>{[...activities, ...others].join(", ") || "-"}</td>
+                    {legacy && (
+                      <>
+                        <td className={`${cell} whitespace-nowrap`}>{latest.participation || "-"}</td>
+                        <td className={`${cell} whitespace-nowrap`}>{latest.drinking || "-"}</td>
+                      </>
+                    )}
+                    {ranked && (
+                      <>
+                        <td className={cell}>{latest.firstChoice || "-"}</td>
+                        <td className={cell}>{latest.secondChoice || "-"}</td>
+                      </>
+                    )}
+                    {legacy && <td className={cell}>{[...activities, ...others].join(", ") || "-"}</td>}
+                    {showPrize && <td className={cell}>{latest.prize || "-"}</td>}
                     <td className={`${cell} whitespace-nowrap tabular-nums`}>
                       {timeFormat.format(new Date(latest.createdAt))}
                     </td>
@@ -124,7 +155,12 @@ export function ApplicationsPanel({ capture }: { capture: Capture }) {
             </tbody>
           </table>
         </div>
-        <p className="text-sm text-muted-foreground">중복 신청자의 날짜와 활동은 모든 신청을 합쳐 표시하고, 횟수와 음주 여부는 최신 신청을 표시합니다. 신청별 내용은 조 편성의 상세 정보에서 확인할 수 있습니다.</p>
+        <p className="text-sm text-muted-foreground">
+          {legacy
+            ? "중복 신청자의 날짜와 활동은 모든 신청을 합쳐 표시하고, 나머지는 최신 신청을 표시합니다."
+            : "중복 신청자의 날짜는 모든 신청을 합쳐 표시하고, 나머지는 최신 신청을 표시합니다."}{" "}
+          신청별 내용은 조 편성의 상세 정보에서 확인할 수 있습니다.
+        </p>
       </section>
     </div>
   );

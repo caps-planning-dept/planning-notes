@@ -13,9 +13,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { Capture } from "@/hooks/use-capture";
 import type { Member } from "@/hooks/use-workspace";
 import { formatRoundDate } from "@/lib/capture";
+import { CaptureNotice } from "./capture-notice";
 
 type SettingsPanelProps = { capture: Capture; members: Member[]; userId: string };
 
@@ -29,6 +31,10 @@ export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) 
   const round = capture.round;
   const [newDate, setNewDate] = useState("");
   const [newActivity, setNewActivity] = useState("");
+  const [newPrize, setNewPrize] = useState("");
+  // 글자마다 저장하면 늦게 온 응답이 입력 중인 글을 덮을 수 있어, 칸을 벗어날 때 저장한다.
+  const [notice, setNotice] = useState<string | null>(null);
+  const [prizeNote, setPrizeNote] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirming, setConfirming] = useState(false);
   if (!round) return null;
@@ -55,6 +61,23 @@ export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) 
     if (!value || round?.activities.includes(value)) return;
     capture.updateRound({ activities: [...(round?.activities ?? []), value] });
     setNewActivity("");
+  }
+
+  function addPrize() {
+    const value = newPrize.trim();
+    if (!value || round?.prizes.includes(value)) return;
+    capture.updateRound({ prizes: [...(round?.prizes ?? []), value] });
+    setNewPrize("");
+  }
+
+  function saveNotice() {
+    if (notice !== null && notice !== round?.notice) capture.updateRound({ notice });
+    setNotice(null);
+  }
+
+  function savePrizeNote() {
+    if (prizeNote !== null && prizeNote !== round?.prizeNote) capture.updateRound({ prizeNote });
+    setPrizeNote(null);
   }
 
   return (
@@ -95,6 +118,30 @@ export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) 
       </section>
 
       <section className="flex flex-col gap-3 rounded-md border p-4">
+        <h2 className="font-medium">공지</h2>
+        <p className="text-sm text-muted-foreground">
+          신청 폼 제목 아래에 보입니다. 줄바꿈은 그대로 보이고, **글자**처럼 감싸면 굵게 보입니다. 칸 밖을 누르면 저장됩니다.
+        </p>
+        <Textarea
+          aria-label="공지"
+          rows={10}
+          maxLength={5000}
+          placeholder="일시, 신청 기한, 장소, 이벤트 안내 등"
+          value={notice ?? round.notice}
+          onChange={(e) => setNotice(e.target.value)}
+          onBlur={saveNotice}
+        />
+        {(notice ?? round.notice).trim() && (
+          <details className="rounded-md bg-secondary p-3 text-sm">
+            <summary className="cursor-pointer font-medium">신청 폼에서 보이는 모습</summary>
+            <div className="mt-3">
+              <CaptureNotice text={notice ?? round.notice} />
+            </div>
+          </details>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-md border p-4">
         <h2 className="font-medium">활동 날짜</h2>
         <ul className="flex flex-wrap gap-1.5">
           {round.dates.map((date) => (
@@ -120,7 +167,8 @@ export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) 
       </section>
 
       <section className="flex flex-col gap-3 rounded-md border p-4">
-        <h2 className="font-medium">활동 목록</h2>
+        <h2 className="font-medium">활동 테마</h2>
+        <p className="text-sm text-muted-foreground">신청자는 이 중에서 1순위와 2순위를 하나씩 고릅니다.</p>
         <ul className="flex flex-wrap gap-1.5">
           {round.activities.map((activity) => (
             <li key={activity} className="flex items-center gap-1 rounded-full bg-muted py-0.5 pr-1 pl-3 text-sm">
@@ -142,12 +190,58 @@ export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) 
             addActivity();
           }}
         >
-          <Input aria-label="추가할 활동" placeholder="축제 (9/29, 9/30, 10/1)" value={newActivity} onChange={(e) => setNewActivity(e.target.value)} />
+          <Input aria-label="추가할 활동" placeholder="야외/관람 (한강모임, 영화관)" value={newActivity} onChange={(e) => setNewActivity(e.target.value)} />
           <Button type="submit" variant="outline">
             <Plus data-icon="inline-start" />
             추가
           </Button>
         </form>
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-md border p-4">
+        <h2 className="font-medium">이벤트 상품</h2>
+        <p className="text-sm text-muted-foreground">
+          상품을 하나 이상 넣으면 신청 폼에 상품 고르기(택1)가 보입니다. 목록 끝에 기타(직접 입력)가 함께 나옵니다.
+        </p>
+        <ul className="flex flex-wrap gap-1.5">
+          {round.prizes.map((prize) => (
+            <li key={prize} className="flex items-center gap-1 rounded-full bg-muted py-0.5 pr-1 pl-3 text-sm">
+              {prize}
+              <button
+                aria-label={`${prize} 삭제`}
+                className="focus-inset flex size-6 items-center justify-center rounded-full hover:bg-background"
+                onClick={() => capture.updateRound({ prizes: round.prizes.filter((item) => item !== prize) })}
+              >
+                <X className="size-3" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            addPrize();
+          }}
+        >
+          <Input aria-label="추가할 상품" maxLength={100} placeholder="컴포즈커피/메가커피 기프티콘" value={newPrize} onChange={(e) => setNewPrize(e.target.value)} />
+          <Button type="submit" variant="outline">
+            <Plus data-icon="inline-start" />
+            추가
+          </Button>
+        </form>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="capture-prize-note">상품 안내 (선택)</Label>
+          <Textarea
+            id="capture-prize-note"
+            rows={2}
+            maxLength={500}
+            placeholder="* 모든 경품은 1만원 상당의 기프티콘으로 제공됩니다!"
+            value={prizeNote ?? round.prizeNote}
+            onChange={(e) => setPrizeNote(e.target.value)}
+            onBlur={savePrizeNote}
+          />
+        </div>
       </section>
 
       {capture.isAdmin && (
