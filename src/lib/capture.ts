@@ -75,6 +75,27 @@ export function formatRoundDate(date: string): string {
   return `${month}/${day} (${WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]})`;
 }
 
+/** 활동 날짜를 한 번에 더할 수 있는 최대 일수. 잘못 고른 연도로 수백 개가 생기는 것을 막는다. */
+export const MAX_DATE_RANGE = 62;
+
+/**
+ * 시작일부터 끝일까지 하루씩 날짜를 돌려준다. 끝일이 없으면 시작일 하나만,
+ * 끝일이 시작일보다 앞이면 둘을 바꿔서 센다. 너무 길면 빈 배열을 돌려준다.
+ */
+export function datesBetween(start: string, end: string): string[] {
+  if (!start) return [];
+  const [from, to] = end && end < start ? [end, start] : [start, end || start];
+  const toTime = (date: string) => {
+    const [year, month, day] = date.split("-").map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  const days = Math.round((toTime(to) - toTime(from)) / 86400000) + 1;
+  if (days > MAX_DATE_RANGE) return [];
+  return Array.from({ length: days }, (_, index) =>
+    new Date(toTime(from) + index * 86400000).toISOString().slice(0, 10),
+  );
+}
+
 function matches(selected: string[], values: string[]): boolean {
   return selected.length === 0 || selected.some((value) => values.includes(value));
 }

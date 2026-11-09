@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Capture } from "@/hooks/use-capture";
 import type { Member } from "@/hooks/use-workspace";
-import { formatRoundDate } from "@/lib/capture";
+import { datesBetween, formatRoundDate, MAX_DATE_RANGE } from "@/lib/capture";
 import { CaptureNotice } from "./capture-notice";
 
 type SettingsPanelProps = { capture: Capture; members: Member[]; userId: string };
@@ -30,6 +30,7 @@ function toLocalInput(value: string | null): string {
 export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) {
   const round = capture.round;
   const [newDate, setNewDate] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
   const [newActivity, setNewActivity] = useState("");
   const [newPrize, setNewPrize] = useState("");
   // 글자마다 저장하면 늦게 온 응답이 입력 중인 글을 덮을 수 있어, 칸을 벗어날 때 저장한다.
@@ -50,10 +51,15 @@ export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) 
     }
   }
 
+  const pickedDates = datesBetween(newDate, newEndDate);
+  const rangeTooLong = newDate !== "" && pickedDates.length === 0;
+
   function addDate() {
-    if (!newDate || round?.dates.includes(newDate)) return;
-    capture.updateRound({ dates: [...(round?.dates ?? []), newDate].sort() });
+    const dates = new Set([...(round?.dates ?? []), ...pickedDates]);
+    if (dates.size === round?.dates.length) return;
+    capture.updateRound({ dates: [...dates].sort() });
     setNewDate("");
+    setNewEndDate("");
   }
 
   function addActivity() {
@@ -157,13 +163,27 @@ export function SettingsPanel({ capture, members, userId }: SettingsPanelProps) 
             </li>
           ))}
         </ul>
-        <div className="flex items-center gap-2">
-          <Input type="date" aria-label="추가할 날짜" className="w-fit" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
-          <Button variant="outline" onClick={addDate}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input type="date" aria-label="추가할 첫 날짜" className="w-fit" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+          <span aria-hidden>~</span>
+          <Input
+            type="date"
+            aria-label="추가할 마지막 날짜 (선택)"
+            className="w-fit"
+            min={newDate || undefined}
+            value={newEndDate}
+            onChange={(e) => setNewEndDate(e.target.value)}
+          />
+          <Button variant="outline" disabled={pickedDates.length === 0} onClick={addDate}>
             <Plus data-icon="inline-start" />
-            추가
+            {pickedDates.length > 1 ? `${pickedDates.length}일 추가` : "추가"}
           </Button>
         </div>
+        <p className="text-sm text-muted-foreground" role="status">
+          {rangeTooLong
+            ? `한 번에 ${MAX_DATE_RANGE}일까지 더할 수 있습니다.`
+            : "하루만 더하려면 첫 날짜만 고르세요. 마지막 날짜도 고르면 그 사이 날짜를 모두 더합니다."}
+        </p>
       </section>
 
       <section className="flex flex-col gap-3 rounded-md border p-4">

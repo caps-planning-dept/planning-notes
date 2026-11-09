@@ -5,6 +5,7 @@ import {
   type CaptureApplication,
   type CaptureFilter,
   type CaptureTeam,
+  datesBetween,
   EMPTY_FILTER,
   filterApplicants,
   formatRoundDate,
@@ -227,6 +228,22 @@ describe("조 배정 현황", () => {
     );
     expect(assigned.get("1")).toEqual(["2026-11-16", "2026-11-17"]);
     expect(assigned.size).toBe(1);
+  });
+});
+
+describe("연속 날짜 더하기", () => {
+  it("첫 날짜부터 마지막 날짜까지 모두 돌려주고, 달이 바뀌어도 이어진다", () => {
+    expect(datesBetween("2026-11-29", "2026-12-02")).toEqual(["2026-11-29", "2026-11-30", "2026-12-01", "2026-12-02"]);
+  });
+
+  it("마지막 날짜가 없으면 하루만, 순서가 바뀌면 바로잡는다", () => {
+    expect(datesBetween("2026-11-16", "")).toEqual(["2026-11-16"]);
+    expect(datesBetween("2026-11-18", "2026-11-16")).toEqual(["2026-11-16", "2026-11-17", "2026-11-18"]);
+  });
+
+  it("첫 날짜가 없거나 범위가 너무 길면 아무것도 돌려주지 않는다", () => {
+    expect(datesBetween("", "2026-11-16")).toEqual([]);
+    expect(datesBetween("2026-11-16", "2027-11-16")).toEqual([]);
   });
 });
 
