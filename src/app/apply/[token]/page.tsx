@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ApplyForm } from "@/components/capture/apply-form";
+import { readQuestions } from "@/lib/capture";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -14,7 +15,7 @@ type PublicForm = {
   dates: string[];
   activities: string[];
   prizes?: string[];
-  prizeNote?: string;
+  questions?: unknown;
   closesAt: string | null;
   isOpen: boolean;
 };
@@ -48,7 +49,7 @@ export default async function ApplyPage({ params }: PageProps<"/apply/[token]">)
       dates={form.dates}
       activities={form.activities}
       prizes={form.prizes ?? []}
-      prizeNote={form.prizeNote ?? ""}
+      questions={readQuestions(form.questions)}
     />
   );
 }

@@ -52,7 +52,7 @@ export function CapturePanels({ capture, title, members, userId }: CapturePanels
       )}
       {panel === "applications" && <ApplicationsPanel capture={capture} />}
       {panel === "teams" && <TeamsPanel capture={capture} title={title} />}
-      {panel === "settings" && <SettingsPanel capture={capture} members={members} userId={userId} />}
+      {panel === "settings" && <SettingsPanel capture={capture} title={title} members={members} userId={userId} />}
     </section>
   );
 }

@@ -13,8 +13,53 @@ export type CaptureRound = {
   activities: string[];
   notice: string;
   prizes: string[];
-  prizeNote: string;
+  questions: CaptureQuestions;
 };
+
+/** 신청 폼의 질문. 순서대로 폼에 나온다. */
+export const QUESTIONS = [
+  { key: "name", label: "이름" },
+  { key: "major", label: "학과" },
+  { key: "studentId", label: "학번" },
+  { key: "cohort", label: "기수" },
+  { key: "teammate", label: "함께 조를 이루고 싶은 사람 (선택)" },
+  { key: "dates", label: "참여 희망 날짜 (복수 선택)" },
+  { key: "firstChoice", label: "선호하는 활동 테마 1순위" },
+  { key: "secondChoice", label: "선호하는 활동 테마 2순위" },
+  { key: "prize", label: "이벤트 상품 선택 (택1, 선택)" },
+] as const;
+
+export type QuestionKey = (typeof QUESTIONS)[number]["key"];
+export type QuestionText = { label?: string; help?: string };
+export type CaptureQuestions = Partial<Record<QuestionKey, QuestionText>>;
+
+export const MAX_QUESTION_LABEL = 200;
+export const MAX_QUESTION_HELP = 1000;
+
+/** 회차에서 고친 질문 문장을 돌려준다. 비어 있으면 기본 문장을 쓴다. */
+export function questionText(questions: CaptureQuestions, key: QuestionKey): { label: string; help: string } {
+  const fallback = QUESTIONS.find((item) => item.key === key)?.label ?? "";
+  return {
+    label: questions[key]?.label?.trim() || fallback,
+    help: questions[key]?.help?.trim() ?? "",
+  };
+}
+
+/** DB에서 온 값이 형식에 맞지 않아도 폼이 깨지지 않도록 문자열만 남긴다. */
+export function readQuestions(value: unknown): CaptureQuestions {
+  if (!value || typeof value !== "object") return {};
+  const result: CaptureQuestions = {};
+  for (const { key } of QUESTIONS) {
+    const item = (value as Record<string, unknown>)[key];
+    if (!item || typeof item !== "object") continue;
+    const { label, help } = item as Record<string, unknown>;
+    result[key] = {
+      ...(typeof label === "string" ? { label } : {}),
+      ...(typeof help === "string" ? { help } : {}),
+    };
+  }
+  return result;
+}
 
 export type CaptureApplication = {
   id: string;

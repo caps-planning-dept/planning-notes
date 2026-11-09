@@ -16,6 +16,8 @@ import {
   teamBoard,
   noticeSegments,
   prizeValue,
+  questionText,
+  readQuestions,
   validateApplication,
 } from "./capture";
 
@@ -159,7 +161,7 @@ describe("신청 현황 요약", () => {
     activities: ["보드게임"],
     notice: "",
     prizes: ["커피"],
-    prizeNote: "",
+    questions: {},
   };
 
   it("중복 신청자는 한 명으로 세고 여러 날 신청자를 구분한다", () => {
@@ -320,5 +322,18 @@ describe("조에 사람 더하기", () => {
     const applications = [application("a", "1"), application("b", "2")];
     expect(addTeamMembers(team([], null), ["a", "b"], applications).leaderId).toBe("a");
     expect(addTeamMembers(team(["a"], "a"), ["b"], applications).leaderId).toBe("a");
+  });
+});
+
+describe("질문 문장", () => {
+  it("고친 문장과 설명을 쓰고, 비어 있으면 기본 문장을 쓴다", () => {
+    const questions = { major: { label: "학과 (ex. 컴퓨터AI학부)", help: "복수전공은 주전공만" }, name: { label: "  " } };
+    expect(questionText(questions, "major")).toEqual({ label: "학과 (ex. 컴퓨터AI학부)", help: "복수전공은 주전공만" });
+    expect(questionText(questions, "name")).toEqual({ label: "이름", help: "" });
+  });
+
+  it("DB 값에서 모르는 질문과 문자열이 아닌 값은 버린다", () => {
+    expect(readQuestions({ name: { label: "성함", help: 3 }, unknown: { label: "x" } })).toEqual({ name: { label: "성함" } });
+    expect(readQuestions(null)).toEqual({});
   });
 });

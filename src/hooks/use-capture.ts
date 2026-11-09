@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { CaptureApplication, CaptureRound, CaptureTeam } from "@/lib/capture";
+import { type CaptureApplication, type CaptureRound, type CaptureTeam, readQuestions } from "@/lib/capture";
 import { createClient } from "@/lib/supabase/client";
 
 type RoundRow = {
@@ -11,7 +11,7 @@ type RoundRow = {
   activities: string[];
   notice: string;
   prizes: string[];
-  prize_note: string;
+  questions: unknown;
 };
 
 type ApplicationRow = {
@@ -90,7 +90,7 @@ export function useCapture(tabId: string, isAdmin: boolean) {
   const fetchRound = useCallback(async () => {
     const { data, error: failure } = await supabase
       .from("capture_rounds")
-      .select("tab_id, public_token, is_open, closes_at, dates, activities, notice, prizes, prize_note")
+      .select("tab_id, public_token, is_open, closes_at, dates, activities, notice, prizes, questions")
       .eq("tab_id", tabId)
       .maybeSingle();
     if (failure) return report(failure);
@@ -105,7 +105,7 @@ export function useCapture(tabId: string, isAdmin: boolean) {
         activities: row.activities,
         notice: row.notice,
         prizes: row.prizes,
-        prizeNote: row.prize_note,
+        questions: readQuestions(row.questions),
       },
     );
   }, [supabase, tabId, report]);
@@ -176,7 +176,7 @@ export function useCapture(tabId: string, isAdmin: boolean) {
     viewerIds,
     error,
     updateRound(
-      change: Partial<Pick<CaptureRound, "isOpen" | "closesAt" | "dates" | "activities" | "notice" | "prizes" | "prizeNote">>,
+      change: Partial<Pick<CaptureRound, "isOpen" | "closesAt" | "dates" | "activities" | "notice" | "prizes" | "questions">>,
     ) {
       setRound((current) => current && { ...current, ...change });
       supabase
@@ -188,7 +188,7 @@ export function useCapture(tabId: string, isAdmin: boolean) {
           ...("activities" in change ? { activities: change.activities } : {}),
           ...("notice" in change ? { notice: change.notice } : {}),
           ...("prizes" in change ? { prizes: change.prizes } : {}),
-          ...("prizeNote" in change ? { prize_note: change.prizeNote } : {}),
+          ...("questions" in change ? { questions: change.questions } : {}),
         })
         .eq("tab_id", tabId)
         .then(({ error: failure }) => report(failure));

@@ -1,10 +1,11 @@
 import { noticeSegments } from "@/lib/capture";
+import { cn } from "@/lib/utils";
 
-/** 신청 폼 제목 아래의 공지. 줄바꿈을 살리고 **굵게**만 꾸민다. */
-export function CaptureNotice({ text }: { text: string }) {
+/** 신청 폼의 공지와 질문 설명. 줄바꿈을 살리고 **굵게**만 꾸민다. */
+export function CaptureNotice({ text, className, id }: { text: string; className?: string; id?: string }) {
   if (!text.trim()) return null;
   return (
-    <div className="flex flex-col gap-1 leading-relaxed">
+    <div id={id} className={cn("flex flex-col gap-1 leading-relaxed", className)}>
       {text.split("\n").map((line, index) =>
         line.trim() === "" ? (
           <div key={index} className="h-3" aria-hidden />
