@@ -548,9 +548,36 @@ type OverviewProps = {
   onAddPerson: () => void;
 };
 
-/** 모두의 시간표를 겹쳐, 칸마다 수업 있는 사람 수를 진하기로 보여 준다. */
+type Run = { start: number; end: number; ids: Set<string> };
+
+/** 한 요일의 30분 칸을, 수업 있는 사람이 같은 칸끼리 이어 붙인 덩어리로 묶는다. */
+function busyRuns(classes: TimetableClass[], day: number, slots: number[]): Run[] {
+  const runs: (Run & { key: string })[] = [];
+  for (const start of slots) {
+    const ids = busyPeople(classes, day, start);
+    const key = [...ids].sort().join(",");
+    const last = runs.at(-1);
+    if (last && last.key === key) last.end = start + SLOT_MINUTES;
+    else runs.push({ start, end: start + SLOT_MINUTES, ids, key });
+  }
+  return runs;
+}
+
+/** 수업 있는 사람 비율에 따라 탭 색을 섞는 정도(%). 한 명이어도 보이고, 모두 수업이면 가장 진하다. */
+function heatMix(count: number, total: number) {
+  return Math.round(14 + (count / total) * 66);
+}
+
+function heatStyle(count: number, total: number): CSSProperties {
+  return {
+    background: `color-mix(in oklab, var(--tab) ${heatMix(count, total)}%, var(--background))`,
+    color: count / total > 0.6 ? "var(--on-tab)" : "var(--foreground)",
+  };
+}
+
+/** 모두의 시간표를 겹쳐, 같은 사람이 수업 있는 시간을 한 덩어리로 묶어 진하기로 보여 준다. */
 function Overview({ classes, people, range, nameOf, onAddPerson }: OverviewProps) {
-  const [slot, setSlot] = useState<{ day: number; start: number } | null>(null);
+  const [slot, setSlot] = useState<{ day: number; start: number; end: number } | null>(null);
   // 수업을 하나라도 넣은 사람만 센다. 이름만 있고 수업이 없으면 비는 시간 계산에서 뺀다.
   const entered = new Set(classes.map((item) => item.personId));
   const total = entered.size;
@@ -579,8 +606,9 @@ function Overview({ classes, people, range, nameOf, onAddPerson }: OverviewProps
 
   const busy = slot ? busyPeople(classes, slot.day, slot.start) : new Set<string>();
   const slotClasses = slot
-    ? classes.filter((item) => item.day === slot.day && item.start < slot.start + SLOT_MINUTES && item.end > slot.start)
+    ? classes.filter((item) => item.day === slot.day && item.start < slot.end && item.end > slot.start)
     : [];
+  const steps = Array.from({ length: total }, (_, index) => index + 1);
 
   return (
     <>
@@ -593,8 +621,15 @@ function Overview({ classes, people, range, nameOf, onAddPerson }: OverviewProps
         ) : (
           <ul className="flex flex-wrap gap-1.5">
             {free.map((window) => (
-              <li key={`${window.day}-${window.start}`} className="rounded-full bg-(--tab) px-3 py-1 text-sm text-(--on-tab)">
-                {DAY_LABELS[window.day]} {formatShortTime(window.start)}~{formatShortTime(window.end)}
+              <li key={`${window.day}-${window.start}`}>
+                <button
+                  type="button"
+                  className="focus-inset rounded-full border border-(--tab)/40 bg-(--tab)/10 px-3 py-1 text-sm transition-colors hover:bg-(--tab)/20"
+                  onClick={() => setSlot({ day: window.day, start: window.start, end: window.end })}
+                >
+                  <span className="font-medium">{DAY_LABELS[window.day]}</span> {formatShortTime(window.start)}~
+                  {formatShortTime(window.end)}
+                </button>
               </li>
             ))}
           </ul>
@@ -609,26 +644,33 @@ function Overview({ classes, people, range, nameOf, onAddPerson }: OverviewProps
       <WeekGrid
         range={range}
         renderDay={(day) =>
-          slots.map((start) => {
-            const count = busyPeople(classes, day, start).size;
-            const active = slot?.day === day && slot.start === start;
+          busyRuns(classes, day, slots).map((run) => {
+            const count = run.ids.size;
+            const active = slot?.day === day && slot.start === run.start && slot.end === run.end;
+            const box = position(run.start, run.end, range.startHour);
+            const time = `${DAY_LABELS[day]} ${formatShortTime(run.start)}~${formatShortTime(run.end)}`;
+            const label = count === 0 ? `${time} 모두 비어 있음` : `${time} 수업 있는 사람 ${count}명`;
             return (
               <button
-                key={start}
+                key={run.start}
                 type="button"
-                aria-label={`${DAY_LABELS[day]} ${formatShortTime(start)} 수업 있는 사람 ${count}명`}
+                aria-label={label}
                 aria-pressed={active}
+                title={label}
                 className={cn(
-                  "focus-inset absolute inset-x-0 flex items-center justify-center text-[0.7rem]",
-                  active && "ring-2 ring-foreground ring-inset",
+                  "focus-inset absolute inset-x-1 flex items-center justify-center rounded-lg text-xs transition-[filter,background-color]",
+                  count > 0 && "font-medium tabular-nums hover:brightness-95",
+                  count === 0 && "hover:bg-muted/60",
+                  active && "ring-2 ring-foreground/80 ring-offset-1 ring-offset-background",
                 )}
                 style={{
-                  ...position(start, start + SLOT_MINUTES, range.startHour),
-                  // 수업 있는 사람이 많을수록 진하다. 모두 비면 투명하다.
-                  background: count > 0 ? `color-mix(in oklab, var(--tab) ${Math.round((count / total) * 85)}%, transparent)` : undefined,
-                  color: count / total > 0.5 ? "var(--on-tab)" : undefined,
+                  // 덩어리끼리 붙어 보이지 않게 위아래로 1px씩 띄운다.
+                  top: Number(box.top) + 1,
+                  height: Number(box.height) - 2,
+                  // 수업 있는 사람이 많을수록 탭 색이 진하다.
+                  ...(count > 0 ? heatStyle(count, total) : {}),
                 }}
-                onClick={() => setSlot(active ? null : { day, start })}
+                onClick={() => setSlot(active ? null : { day, start: run.start, end: run.end })}
               >
                 {count > 0 ? count : ""}
               </button>
@@ -636,12 +678,28 @@ function Overview({ classes, people, range, nameOf, onAddPerson }: OverviewProps
           })
         }
       />
-      <p className="text-sm text-muted-foreground">칸의 숫자는 수업 있는 사람 수입니다. 칸을 누르면 누가 수업이 있는지 보입니다.</p>
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <span>수업 있는 사람</span>
+          <span className="flex gap-0.5" aria-hidden>
+            {steps.map((count) => (
+              <span
+                key={count}
+                className="flex size-6 items-center justify-center rounded-md text-xs font-medium tabular-nums"
+                style={heatStyle(count, total)}
+              >
+                {count}
+              </span>
+            ))}
+          </span>
+        </div>
+        <span>칸을 누르면 누가 수업이 있는지 보입니다.</span>
+      </div>
 
       {slot && (
         <section aria-live="polite" className="flex flex-col gap-2 rounded-xl border border-border/70 bg-background p-4 shadow-soft">
           <h2 className="font-medium">
-            {DAY_LABELS[slot.day]} {formatShortTime(slot.start)}~{formatShortTime(slot.start + SLOT_MINUTES)}
+            {DAY_LABELS[slot.day]} {formatShortTime(slot.start)}~{formatShortTime(slot.end)}
           </h2>
           <p className="text-sm">
             <span className="font-medium">수업 있음 {busy.size}명</span>
