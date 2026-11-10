@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CalendarEvent } from "@/lib/calendar";
 import { createClient } from "@/lib/supabase/client";
+import type { TabViewer } from "@/lib/tab-access";
 import {
   moveTab,
   moveToTrash,
@@ -45,6 +46,7 @@ type TabRow = {
   deleted_at: string | null;
   created_at: string;
   pinned_at: string | null;
+  viewers_only: boolean;
 };
 
 type EventRow = {
@@ -73,6 +75,7 @@ function toTab(row: TabRow): Tab {
     deletedAt: row.deleted_at ? new Date(row.deleted_at).getTime() : null,
     createdAt: new Date(row.created_at).getTime(),
     pinnedAt: row.pinned_at ? new Date(row.pinned_at).getTime() : null,
+    viewersOnly: row.viewers_only,
   };
 }
 
@@ -113,6 +116,8 @@ export function useWorkspace(workspaceId: string, userId: string) {
   const [notes, setNotes] = useState<Record<string, JSONContent>>({});
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [tabViewers, setTabViewers] = useState<TabViewer[]>([]);
+  const dataChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [onlineIds, setOnlineIds] = useState<string[]>([]);
   const [selectedView, setView] = useState<View | null>(null);
   const [syncError, setSyncError] = useState("");
@@ -125,7 +130,7 @@ export function useWorkspace(workspaceId: string, userId: string) {
   const fetchTabs = useCallback(async () => {
     const { data, error } = await supabase
       .from("tabs")
-      .select("id, parent_id, title, template, color, deleted_at, created_at, pinned_at")
+      .select("id, parent_id, title, template, color, deleted_at, created_at, pinned_at, viewers_only")
       .eq("workspace_id", workspaceId)
       .order("created_at");
     if (error) return report(error);
@@ -146,6 +151,19 @@ export function useWorkspace(workspaceId: string, userId: string) {
     if (error) return report(error);
     setNotes(Object.fromEntries(data.map((row) => [row.tab_id, row.content as JSONContent])));
   }, [supabase, report]);
+
+  // RLS가 볼 수 있는 탭의 열람자만 돌려준다.
+  const fetchViewers = useCallback(async () => {
+    const { data, error } = await supabase.from("tab_viewers").select("tab_id, user_id, can_manage");
+    if (error) return report(error);
+    setTabViewers(data.map((row) => ({ tabId: row.tab_id, userId: row.user_id, canManage: row.can_manage })));
+  }, [supabase, report]);
+
+  // 열람 권한이 바뀌면 탭 목록도 바뀐다. 볼 수 없게 된 사람은 탭 변경 알림을 받지 못하므로
+  // 바꾼 사람이 따로 알리고(broadcast), 받은 사람은 둘 다 다시 조회한다.
+  const fetchAccess = useCallback(async () => {
+    await Promise.all([fetchTabs(), fetchViewers()]);
+  }, [fetchTabs, fetchViewers]);
 
   const fetchMembers = useCallback(async () => {
     const { data, error } = await supabase
@@ -180,7 +198,7 @@ export function useWorkspace(workspaceId: string, userId: string) {
   useEffect(() => {
     let cancelled = false;
     Promise.resolve()
-      .then(() => Promise.all([fetchTabs(), fetchEvents(), fetchNotes(), fetchMembers()]))
+      .then(() => Promise.all([fetchTabs(), fetchViewers(), fetchEvents(), fetchNotes(), fetchMembers()]))
       .then(() => {
         if (!cancelled) setLoaded(true);
       });
@@ -191,7 +209,10 @@ export function useWorkspace(workspaceId: string, userId: string) {
       .on("postgres_changes", { event: "*", schema: "public", table: "calendar_events" }, fetchEvents)
       .on("postgres_changes", { event: "*", schema: "public", table: "workspace_members" }, fetchMembers)
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, fetchMembers)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tab_viewers" }, fetchAccess)
+      .on("broadcast", { event: "access-changed" }, fetchAccess)
       .subscribe();
+    dataChannelRef.current = dataChannel;
 
     const presenceChannel = supabase.channel(`workspace-presence:${workspaceId}`, {
       config: { presence: { key: userId } },
@@ -218,15 +239,24 @@ export function useWorkspace(workspaceId: string, userId: string) {
     return () => {
       cancelled = true;
       clearInterval(activityTimer);
+      dataChannelRef.current = null;
       supabase.removeChannel(dataChannel);
       supabase.removeChannel(presenceChannel);
     };
-  }, [supabase, workspaceId, userId, fetchTabs, fetchEvents, fetchNotes, fetchMembers, report]);
+  }, [supabase, workspaceId, userId, fetchTabs, fetchViewers, fetchAccess, fetchEvents, fetchNotes, fetchMembers, report]);
 
   // 보던 탭을 다른 사람이 지우면 첫 화면으로 돌아간다.
   const selectedTabGone =
     loaded && selectedView?.type === "tab" && !tabs.some((tab) => tab.id === selectedView.id && tab.deletedAt === null);
   const view: View = selectedView && !selectedTabGone ? selectedView : { type: "home" };
+
+  /** 열람 권한을 바꾼 뒤 DB에서 다시 받아 오고, 다른 멤버에게도 다시 받으라고 알린다. */
+  async function afterAccessChange(error: { message: string } | null) {
+    report(error);
+    await fetchAccess();
+    dataChannelRef.current?.send({ type: "broadcast", event: "access-changed", payload: {} });
+    return !error;
+  }
 
   function applyTabs(next: Tab[]) {
     const changed = next.filter((tab) => {
@@ -252,13 +282,17 @@ export function useWorkspace(workspaceId: string, userId: string) {
     notes,
     events,
     members,
+    tabViewers,
     onlineIds,
     view,
     setView,
     syncError,
     createTab(input: NewTabInput) {
       const id = crypto.randomUUID();
-      setTabs((current) => [...current, { ...input, id, deletedAt: null, createdAt: Date.now(), pinnedAt: null }]);
+      const viewersOnly = input.template === "capture";
+      setTabs((current) => [...current, { ...input, id, deletedAt: null, createdAt: Date.now(), pinnedAt: null, viewersOnly }]);
+      // DB도 새 탭을 만든 사람을 열람자로 넣는다. 캡처 탭이 아니면 설정 가능자로 넣는다.
+      setTabViewers((current) => [...current, { tabId: id, userId, canManage: !viewersOnly }]);
       supabase
         .from("tabs")
         .insert({
@@ -315,6 +349,43 @@ export function useWorkspace(workspaceId: string, userId: string) {
           );
           report(error);
         });
+    },
+    /** true면 지정한 멤버만, false면 모든 멤버가 본다. */
+    async setTabViewersOnly(id: string, viewersOnly: boolean) {
+      setTabs((current) => current.map((tab) => (tab.id === id ? { ...tab, viewersOnly } : tab)));
+      // DB는 "지정한 멤버만"으로 바꾼 사람을 열람자로 넣는다. 바꾸자마자 탭이 사라지지 않게 미리 반영한다.
+      if (viewersOnly && !tabViewers.some((item) => item.tabId === id && item.userId === userId)) {
+        setTabViewers((current) => [...current, { tabId: id, userId, canManage: false }]);
+      }
+      const { error } = await supabase.rpc("set_tab_viewers_only", { target_tab: id, restricted: viewersOnly });
+      return afterAccessChange(error);
+    },
+    /** 열람자로 넣거나 뺀다. 빼면 설정 권한도 함께 사라진다. */
+    async setTabViewer(tabId: string, memberId: string, allowed: boolean) {
+      setTabViewers((current) =>
+        allowed
+          ? [...current, { tabId, userId: memberId, canManage: false }]
+          : current.filter((item) => !(item.tabId === tabId && item.userId === memberId)),
+      );
+      const table = supabase.from("tab_viewers");
+      const { error } = allowed
+        ? await table.insert({ tab_id: tabId, user_id: memberId })
+        : await table.delete().eq("tab_id", tabId).eq("user_id", memberId);
+      return afterAccessChange(error);
+    },
+    /** 설정 권한을 주거나 거둔다. 열람자가 아니면 열람자로도 넣는다. */
+    async setTabManager(tabId: string, memberId: string, canManage: boolean) {
+      const exists = tabViewers.some((item) => item.tabId === tabId && item.userId === memberId);
+      setTabViewers((current) =>
+        exists
+          ? current.map((item) => (item.tabId === tabId && item.userId === memberId ? { ...item, canManage } : item))
+          : [...current, { tabId, userId: memberId, canManage }],
+      );
+      const table = supabase.from("tab_viewers");
+      const { error } = exists
+        ? await table.update({ can_manage: canManage }).eq("tab_id", tabId).eq("user_id", memberId)
+        : await table.insert({ tab_id: tabId, user_id: memberId, can_manage: canManage });
+      return afterAccessChange(error);
     },
     updateDisplayName(name: string) {
       // 노트는 이름이 바뀌면 다시 입장해 DB의 이름을 받으므로, 저장이 끝난 뒤에 화면을 바꾼다.

@@ -11,6 +11,7 @@ export const BACKUP_TABLES = [
   { table: "workspace_members", columns: "workspace_id, user_id, role, joined_at", order: "user_id" },
   { table: "profiles", columns: "id, display_name", order: "id" },
   { table: "tabs", columns: "*", order: "id" },
+  { table: "tab_viewers", columns: "*", order: "tab_id" },
   { table: "notes", columns: "*", order: "tab_id" },
   { table: "calendar_events", columns: "*", order: "id" },
   { table: "inquiries", columns: "*", order: "id" },

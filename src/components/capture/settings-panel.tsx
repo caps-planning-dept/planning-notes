@@ -15,12 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { Capture } from "@/hooks/use-capture";
-import type { Member } from "@/hooks/use-workspace";
 import { datesBetween, formatRoundDate, MAX_DATE_RANGE, OTHER_PRIZE } from "@/lib/capture";
 import { ApplyForm } from "./apply-form";
 import { type QuestionDraft, QuestionsEditor, withDraft } from "./questions-editor";
 
-type SettingsPanelProps = { capture: Capture; title: string; members: Member[]; userId: string };
+type SettingsPanelProps = { capture: Capture; title: string };
 
 function toLocalInput(value: string | null): string {
   if (!value) return "";
@@ -28,7 +27,7 @@ function toLocalInput(value: string | null): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function SettingsPanel({ capture, title, members, userId }: SettingsPanelProps) {
+export function SettingsPanel({ capture, title }: SettingsPanelProps) {
   const round = capture.round;
   const [newDate, setNewDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
@@ -254,27 +253,6 @@ export function SettingsPanel({ capture, title, members, userId }: SettingsPanel
 
         {capture.isAdmin && (
           <>
-            <section className="flex flex-col gap-2 rounded-md border p-4">
-              <h2 className="font-medium">열람자</h2>
-              <p className="text-sm text-muted-foreground">체크한 멤버와 관리자만 이 탭과 신청 내용을 볼 수 있습니다.</p>
-              {members
-                .filter((member) => member.role !== "admin" && member.userId !== userId)
-                .map((member) => (
-                  <label key={member.userId} className="flex min-h-9 items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="size-4"
-                      checked={capture.viewerIds.includes(member.userId)}
-                      onChange={(e) => capture.setViewer(member.userId, e.target.checked)}
-                    />
-                    {member.displayName}
-                  </label>
-                ))}
-              {members.every((member) => member.role === "admin" || member.userId === userId) && (
-                <p className="text-sm text-muted-foreground">지정할 수 있는 다른 멤버가 없습니다.</p>
-              )}
-            </section>
-
             <section className="flex flex-col gap-2 rounded-md border border-destructive/40 p-4">
               <h2 className="font-medium">회차 종료 후 정리</h2>
               <p className="text-sm text-muted-foreground">신청 폼 안내대로 회차 종료 후 1년 이내에 신청 내용을 지워 주세요.</p>

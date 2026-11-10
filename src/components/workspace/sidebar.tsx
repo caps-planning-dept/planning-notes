@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquareText, Pin, PinOff, Plus, Trash2, UserPen, Users, X } from "lucide-react";
+import { Lock, MessageSquareText, Pin, PinOff, Plus, Trash2, UserPen, Users, X } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -183,6 +183,7 @@ function TabRow({ tab, depth, workspace, onNewTab, onPicked }: TabRowProps) {
       >
         <TabIcon template={tab.template} className="size-4 shrink-0" style={active ? undefined : { color }} aria-hidden />
         <span className="truncate">{tab.title || "제목 없음"}</span>
+        {tab.viewersOnly && <Lock className="size-3 shrink-0 opacity-70" aria-label="지정한 멤버만 봄" />}
         {pinned && <Pin className="size-3 shrink-0 group-focus-within:hidden group-hover:hidden" aria-label="고정됨" />}
       </button>
       {depth === 0 && (

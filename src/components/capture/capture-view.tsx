@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { type Capture, useCapture } from "@/hooks/use-capture";
-import type { Member } from "@/hooks/use-workspace";
 import { cn } from "@/lib/utils";
 import { ApplicationsPanel } from "./applications-panel";
 import { SettingsPanel } from "./settings-panel";
@@ -14,18 +13,18 @@ const PANELS = [
   { id: "settings", label: "설정" },
 ] as const;
 
-type CaptureViewProps = { tabId: string; title: string; members: Member[]; userId: string; isAdmin: boolean };
+type CaptureViewProps = { tabId: string; title: string; isAdmin: boolean };
 
-export function CaptureView({ tabId, title, members, userId, isAdmin }: CaptureViewProps) {
+export function CaptureView({ tabId, title, isAdmin }: CaptureViewProps) {
   const capture = useCapture(tabId, isAdmin);
   if (!capture.loaded) return <p className="px-6 text-muted-foreground">불러오는 중입니다.</p>;
   if (!capture.round) return <p className="px-6 text-muted-foreground">회차를 준비하는 중입니다. 잠시 후 새로고침해 주세요.</p>;
-  return <CapturePanels capture={capture} title={title} members={members} userId={userId} />;
+  return <CapturePanels capture={capture} title={title} />;
 }
 
-type CapturePanelsProps = { capture: Capture; title: string; members: Member[]; userId: string };
+type CapturePanelsProps = { capture: Capture; title: string };
 
-export function CapturePanels({ capture, title, members, userId }: CapturePanelsProps) {
+export function CapturePanels({ capture, title }: CapturePanelsProps) {
   const [panel, setPanel] = useState<(typeof PANELS)[number]["id"]>("applications");
 
   return (
@@ -52,7 +51,7 @@ export function CapturePanels({ capture, title, members, userId }: CapturePanels
       )}
       {panel === "applications" && <ApplicationsPanel capture={capture} />}
       {panel === "teams" && <TeamsPanel capture={capture} title={title} />}
-      {panel === "settings" && <SettingsPanel capture={capture} title={title} members={members} userId={userId} />}
+      {panel === "settings" && <SettingsPanel capture={capture} title={title} />}
     </section>
   );
 }

@@ -80,7 +80,6 @@ export function useCapture(tabId: string, isAdmin: boolean) {
   const [round, setRound] = useState<CaptureRound | null>(null);
   const [applications, setApplications] = useState<CaptureApplication[]>([]);
   const [teams, setTeams] = useState<CaptureTeam[]>([]);
-  const [viewerIds, setViewerIds] = useState<string[]>([]);
   const [error, setError] = useState("");
 
   const report = useCallback((failure: { message: string } | null) => {
@@ -130,20 +129,10 @@ export function useCapture(tabId: string, isAdmin: boolean) {
     setTeams((data as TeamRow[]).map(toTeam));
   }, [supabase, tabId, report]);
 
-  const fetchViewers = useCallback(async () => {
-    if (!isAdmin) return;
-    const { data, error: failure } = await supabase
-      .from("capture_viewers")
-      .select("user_id")
-      .eq("tab_id", tabId);
-    if (failure) return report(failure);
-    setViewerIds(data.map((row) => row.user_id));
-  }, [supabase, tabId, isAdmin, report]);
-
   useEffect(() => {
     let cancelled = false;
     Promise.resolve()
-      .then(() => Promise.all([fetchRound(), fetchApplications(), fetchTeams(), fetchViewers()]))
+      .then(() => Promise.all([fetchRound(), fetchApplications(), fetchTeams()]))
       .then(() => {
         if (!cancelled) setLoaded(true);
       });
@@ -158,7 +147,7 @@ export function useCapture(tabId: string, isAdmin: boolean) {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [supabase, tabId, fetchRound, fetchApplications, fetchTeams, fetchViewers]);
+  }, [supabase, tabId, fetchRound, fetchApplications, fetchTeams]);
 
   // 새 캡처 탭은 저장이 끝나기 전에 화면이 먼저 열리므로, 회차가 보일 때까지 다시 조회한다.
   useEffect(() => {
@@ -173,7 +162,6 @@ export function useCapture(tabId: string, isAdmin: boolean) {
     round,
     applications,
     teams,
-    viewerIds,
     error,
     updateRound(
       change: Partial<Pick<CaptureRound, "isOpen" | "closesAt" | "dates" | "activities" | "notice" | "prizes" | "questions">>,
@@ -192,16 +180,6 @@ export function useCapture(tabId: string, isAdmin: boolean) {
         })
         .eq("tab_id", tabId)
         .then(({ error: failure }) => report(failure));
-    },
-    setViewer(userId: string, allowed: boolean) {
-      setViewerIds((current) =>
-        allowed ? [...current, userId] : current.filter((id) => id !== userId),
-      );
-      const table = supabase.from("capture_viewers");
-      const request = allowed
-        ? table.insert({ tab_id: tabId, user_id: userId })
-        : table.delete().eq("tab_id", tabId).eq("user_id", userId);
-      request.then(({ error: failure }) => report(failure));
     },
     addTeam(eventDate: string, activity: string, applicationIds: string[], note: string) {
       const id = crypto.randomUUID();

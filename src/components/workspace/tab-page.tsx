@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderInput, Palette, Trash2 } from "lucide-react";
+import { FolderInput, Lock, Palette, Trash2, Users } from "lucide-react";
 import { type CSSProperties, useState } from "react";
 import { CaptureView } from "@/components/capture/capture-view";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { NoteEditor } from "./note-editor";
 import { TEMPLATE_LABELS } from "./tab-icon";
 import { TabStrip } from "./tab-strip";
 import { TimetableView } from "./timetable-view";
+import { ViewersDialog } from "./viewers-dialog";
 
 type TabPageProps = {
   tab: Tab;
@@ -33,6 +34,7 @@ type TabPageProps = {
 export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPageProps) {
   const [colorOpen, setColorOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [viewersOpen, setViewersOpen] = useState(false);
   const color = resolveTabColor(workspace.tabs, tab.id);
   const onColor = readableTextOn(color);
   const tabStyle = { "--tab": color, "--on-tab": onColor } as CSSProperties;
@@ -44,6 +46,16 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
         <div className="flex items-center justify-between gap-2 text-sm">
           <span className="opacity-80">{TEMPLATE_LABELS[tab.template]}</span>
           <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={tab.viewersOnly ? "열람자 설정 (지정한 멤버만 봄)" : "열람자 설정 (모든 멤버가 봄)"}
+              title={tab.viewersOnly ? "지정한 멤버만 봄" : "모든 멤버가 봄"}
+              className="text-inherit opacity-80 hover:bg-white/15 hover:text-inherit hover:opacity-100"
+              onClick={() => setViewersOpen(true)}
+            >
+              {tab.viewersOnly ? <Lock /> : <Users />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -104,10 +116,17 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
         <TimetableView tabId={tab.id} userId={userId} isAdmin={isAdmin} />
       )}
       {tab.template === "capture" && (
-        <CaptureView tabId={tab.id} title={tab.title} members={workspace.members} userId={userId} isAdmin={isAdmin} />
+        <CaptureView tabId={tab.id} title={tab.title} isAdmin={isAdmin} />
       )}
 
       <MoveTabDialog tab={tab} workspace={workspace} open={moveOpen} onClose={() => setMoveOpen(false)} />
+      <ViewersDialog
+        tab={tab}
+        workspace={workspace}
+        userId={userId}
+        open={viewersOpen}
+        onClose={() => setViewersOpen(false)}
+      />
 
       <Dialog open={colorOpen} onOpenChange={setColorOpen}>
         <DialogContent>

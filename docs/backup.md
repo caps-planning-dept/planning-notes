@@ -30,7 +30,7 @@
 자동 복구 도구는 없습니다. 필요한 날짜 폴더의 JSON을 보고 표별로 다시 넣습니다.
 
 1. 백업 저장소에서 날짜 폴더의 JSON을 내려받습니다. 내려받은 파일은 이 저장소에 넣지 않습니다.
-2. 부모가 먼저 들어가야 하므로 `workspaces` → `tabs`(상위 탭 먼저) → `notes`, `calendar_events`, `inquiries` 순서로 넣습니다.
+2. 부모가 먼저 들어가야 하므로 `workspaces` → `tabs`(상위 탭 먼저) → `tab_viewers`, `notes`, `calendar_events`, `inquiries` 순서로 넣습니다.
 3. 행 하나는 `jsonb_populate_record`로 JSON을 그대로 표의 한 줄로 바꿔 넣습니다.
 
    ```sql

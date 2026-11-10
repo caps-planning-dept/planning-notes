@@ -9,6 +9,8 @@ export type Tab = {
   deletedAt: number | null;
   createdAt: number;
   pinnedAt: number | null;
+  /** true면 지정한 멤버만 본다. */
+  viewersOnly: boolean;
 };
 
 export const DEFAULT_TAB_COLOR = "#2b2a27";

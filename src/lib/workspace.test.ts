@@ -17,7 +17,7 @@ import {
 const DAY = 24 * 60 * 60 * 1000;
 
 function tab(id: string, parentId: string | null, extra: Partial<Tab> = {}): Tab {
-  return { id, parentId, title: id, template: "note", color: null, deletedAt: null, createdAt: 0, pinnedAt: null, ...extra };
+  return { id, parentId, title: id, template: "note", color: null, deletedAt: null, createdAt: 0, pinnedAt: null, viewersOnly: false, ...extra };
 }
 
 const ids = (tabs: Tab[]) => tabs.map((item) => item.id);
