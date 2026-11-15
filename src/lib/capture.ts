@@ -79,6 +79,12 @@ export type CaptureApplication = {
   createdAt: string;
 };
 
+/** 관리자와 열람자가 고칠 수 있는 신청 항목. */
+export type ApplicationChange = Pick<
+  CaptureApplication,
+  "name" | "studentId" | "cohort" | "major" | "preferredTeammate" | "dates" | "firstChoice" | "secondChoice" | "prize"
+>;
+
 export type CaptureTeam = {
   id: string;
   eventDate: string;
@@ -311,6 +317,24 @@ export function assignedDatesByStudent(
     }
   }
   return assigned;
+}
+
+/**
+ * 날짜 필터로 고른 날짜에 이미 배정된 사람을 따로 나눈다. 날짜를 여러 개 고르면
+ * 고른 날짜 모두에 배정된 사람만 배정됨으로 보고, 하루라도 비어 있으면 아직 배정되지 않은 쪽에 둔다.
+ * 날짜를 고르지 않으면 나누지 않는다.
+ */
+export function splitByAssignment(
+  applicants: Applicant[],
+  assigned: Map<string, string[]>,
+  selectedDates: string[],
+): { assigned: Applicant[]; waiting: Applicant[] } {
+  if (selectedDates.length === 0) return { assigned: [], waiting: applicants };
+  const isDone = (applicant: Applicant) => {
+    const dates = assigned.get(applicant.studentId) ?? [];
+    return selectedDates.every((date) => dates.includes(date));
+  };
+  return { assigned: applicants.filter(isDone), waiting: applicants.filter((item) => !isDone(item)) };
 }
 
 export type ApplicationDraft = {

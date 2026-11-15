@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { type CaptureApplication, type CaptureRound, type CaptureTeam, readQuestions } from "@/lib/capture";
+import {
+  type ApplicationChange,
+  type CaptureApplication,
+  type CaptureRound,
+  type CaptureTeam,
+  readQuestions,
+} from "@/lib/capture";
 import { createClient } from "@/lib/supabase/client";
 
 type RoundRow = {
@@ -218,6 +224,35 @@ export function useCapture(tabId: string, isAdmin: boolean) {
         .delete()
         .eq("id", teamId)
         .then(({ error: failure }) => report(failure));
+    },
+    /** 신청 내용을 고친다. 조 배정은 그대로 둔다. 실패하면 보여 줄 문구를, 성공하면 null을 돌려준다. */
+    async updateApplication(applicationId: string, change: ApplicationChange) {
+      const { error: failure } = await supabase
+        .from("capture_applications")
+        .update({
+          name: change.name,
+          student_id: change.studentId,
+          cohort: change.cohort,
+          major: change.major,
+          preferred_teammate: change.preferredTeammate,
+          dates: change.dates,
+          first_choice: change.firstChoice,
+          second_choice: change.secondChoice,
+          prize: change.prize,
+        })
+        .eq("id", applicationId)
+        .select("id")
+        .single();
+      if (failure) {
+        // 42501: DB가 고치기 자체를 막음(권한을 더하는 변경이 적용되지 않음). PGRST116: 고친 줄이 없음(이 탭을 볼 수 없음).
+        if (failure.code === "42501") return "DB에 신청을 고치는 권한이 아직 없습니다. 신청 고치기 DB 변경을 적용해야 합니다.";
+        if (failure.code === "PGRST116") return "이 신청을 고칠 수 없습니다. 이 탭의 열람자인지 확인해 주세요.";
+        return `저장하지 못했습니다. (${failure.message})`;
+      }
+      setApplications((current) =>
+        current.map((item) => (item.id === applicationId ? { ...item, ...change } : item)),
+      );
+      return null;
     },
     /** 신청을 지우면 조는 이름 없이 남아 쓸모가 없으므로 함께 지운다. */
     deleteAllApplications() {

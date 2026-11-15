@@ -31,18 +31,12 @@ import {
   OTHER_ACTIVITY,
   PARTICIPATION_OPTIONS,
   removeTeamMember,
+  splitByAssignment,
   teamBoard,
 } from "@/lib/capture";
 import { cn } from "@/lib/utils";
+import { ApplicantDialog } from "./applicant-dialog";
 import { TeamBoard } from "./team-board";
-
-const timeFormat = new Intl.DateTimeFormat("ko-KR", {
-  year: "numeric",
-  month: "numeric",
-  day: "numeric",
-  hour: "numeric",
-  minute: "2-digit",
-});
 
 type ChipGroupProps = {
   label: string;
@@ -89,7 +83,7 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
   // 직접 입력하기 전(null)에는 필터에서 고른 활동을 쓴다.
   const [activity, setActivity] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [opened, setOpened] = useState<Applicant | null>(null);
+  const [opened, setOpened] = useState<string | null>(null);
   const [imageError, setImageError] = useState("");
   // 방금 만든 조. 바로 되돌릴 수 있게 안내를 띄운다.
   const [justCreated, setJustCreated] = useState<string | null>(null);
@@ -167,6 +161,55 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
     }
   }
 
+  // 고른 날짜에 이미 배정된 사람은 위에 따로 모아, 아직 배정되지 않은 사람을 찾기 쉽게 한다.
+  const { assigned: assignedPeople, waiting: waitingPeople } = splitByAssignment(filtered, assigned, filter.dates);
+  const dateLabel = filter.dates.map(formatRoundDate).join(", ");
+
+  function renderApplicant(applicant: Applicant) {
+    const latest = applicant.applications[0];
+    const isSelected = selectedIds.includes(latest.id);
+    const assignedDates = [...(assigned.get(applicant.studentId) ?? [])].sort();
+    return (
+      <li
+        key={applicant.studentId}
+        className={cn(
+          "flex items-stretch overflow-hidden rounded-md border",
+          isSelected && "border-(--tab) bg-(--tab) text-(--on-tab)",
+        )}
+      >
+        <button
+          aria-pressed={isSelected}
+          className={cn("focus-inset flex min-h-12 min-w-0 flex-1 items-center gap-2 px-3 text-left", !isSelected && "hover:bg-muted")}
+          onClick={() => togglePerson(latest.id)}
+        >
+          {isSelected && <Check className="size-4 shrink-0" aria-hidden />}
+          <span className="min-w-0">
+            <span className="block truncate">{applicant.name}</span>
+            {latest.firstChoice && (
+              <span className="block truncate text-xs opacity-80">
+                1 {latest.firstChoice}
+                {latest.secondChoice && ` · 2 ${latest.secondChoice}`}
+              </span>
+            )}
+            {assignedDates.length > 0 && (
+              <span className="block text-xs opacity-80">{assignedDates.map(formatRoundDate).join(", ")} 배정</span>
+            )}
+          </span>
+          {applicant.applications.length > 1 && (
+            <span className="ml-auto shrink-0 text-xs opacity-80">{applicant.applications.length}건</span>
+          )}
+        </button>
+        <button
+          aria-label={`${applicant.name} 상세 정보`}
+          className={cn("focus-inset flex w-9 shrink-0 items-center justify-center", !isSelected && "hover:bg-muted")}
+          onClick={() => setOpened(applicant.studentId)}
+        >
+          <Info className="size-4" aria-hidden />
+        </button>
+      </li>
+    );
+  }
+
   if (selectableDates.length === 0) {
     return <p className="py-10 text-center text-muted-foreground">설정에서 활동 날짜를 먼저 추가해 주세요.</p>;
   }
@@ -222,52 +265,25 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
         {filtered.length === 0 ? (
           <p className="py-8 text-center text-muted-foreground">조건에 맞는 신청자가 없습니다.</p>
         ) : (
-          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            {filtered.map((applicant) => {
-              const latest = applicant.applications[0];
-              const isSelected = selectedIds.includes(latest.id);
-              const assignedDates = assigned.get(applicant.studentId) ?? [];
-              return (
-                <li
-                  key={applicant.studentId}
-                  className={cn(
-                    "flex items-stretch overflow-hidden rounded-md border",
-                    isSelected && "border-(--tab) bg-(--tab) text-(--on-tab)",
-                  )}
-                >
-                  <button
-                    aria-pressed={isSelected}
-                    className={cn("focus-inset flex min-h-12 min-w-0 flex-1 items-center gap-2 px-3 text-left", !isSelected && "hover:bg-muted")}
-                    onClick={() => togglePerson(latest.id)}
-                  >
-                    {isSelected && <Check className="size-4 shrink-0" aria-hidden />}
-                    <span className="min-w-0">
-                      <span className="block truncate">{applicant.name}</span>
-                      {latest.firstChoice && (
-                        <span className="block truncate text-xs opacity-80">
-                          1 {latest.firstChoice}
-                          {latest.secondChoice && ` · 2 ${latest.secondChoice}`}
-                        </span>
-                      )}
-                      {assignedDates.length > 0 && (
-                        <span className="block text-xs opacity-80">{assignedDates.map(formatRoundDate).join(", ")} 배정</span>
-                      )}
-                    </span>
-                    {applicant.applications.length > 1 && (
-                      <span className="ml-auto shrink-0 text-xs opacity-80">{applicant.applications.length}건</span>
-                    )}
-                  </button>
-                  <button
-                    aria-label={`${applicant.name} 상세 정보`}
-                    className={cn("focus-inset flex w-9 shrink-0 items-center justify-center", !isSelected && "hover:bg-muted")}
-                    onClick={() => setOpened(applicant)}
-                  >
-                    <Info className="size-4" aria-hidden />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            {[
+              { key: "assigned", title: `${dateLabel}에 배정된 사람 ${assignedPeople.length}명`, people: assignedPeople },
+              {
+                key: "waiting",
+                title: assignedPeople.length > 0 ? `${dateLabel}에 아직 배정되지 않은 사람 ${waitingPeople.length}명` : "",
+                people: waitingPeople,
+              },
+            ]
+              .filter((group) => group.people.length > 0)
+              .map((group) => (
+                <div key={group.key} className="flex flex-col gap-2">
+                  {group.title && <h3 className="text-sm font-medium text-muted-foreground">{group.title}</h3>}
+                  <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                    {group.people.map(renderApplicant)}
+                  </ul>
+                </div>
+              ))}
+          </>
         )}
       </section>
 
@@ -452,62 +468,7 @@ export function TeamsPanel({ capture, title }: { capture: Capture; title: string
         </DialogContent>
       </Dialog>
 
-      <Dialog open={opened !== null} onOpenChange={(open) => !open && setOpened(null)}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          {opened && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{opened.name}</DialogTitle>
-                <DialogDescription>학번 {opened.studentId}</DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-col gap-5">
-                {opened.applications.map((item, index) => (
-                  <ApplicationDetail
-                    key={item.id}
-                    application={item}
-                    label={opened.applications.length > 1 ? (index === 0 ? "최신 신청" : `이전 신청 ${index}`) : undefined}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ApplicantDialog capture={capture} studentId={opened} onStudentChange={setOpened} />
     </div>
-  );
-}
-
-function ApplicationDetail({ application, label }: { application: CaptureApplication; label?: string }) {
-  const details: [string, string][] = [
-    ["신청 시간", timeFormat.format(new Date(application.createdAt))],
-    ["기수", application.cohort],
-    ["학과", application.major],
-    ["함께 조", application.preferredTeammate || "없음"],
-    ["희망 날짜", application.dates.map(formatRoundDate).join(", ")],
-    ...(application.firstChoice
-      ? ([
-          ["1순위", application.firstChoice],
-          ["2순위", application.secondChoice || "없음"],
-        ] as [string, string][])
-      : ([
-          ["희망 횟수", application.participation || "없음"],
-          ["음주 여부", application.drinking || "없음"],
-          ["희망 활동", application.activities.join(", ") || "없음"],
-          ["기타", application.otherActivity || "없음"],
-        ] as [string, string][])),
-    ...(application.prize ? ([["이벤트 상품", application.prize]] as [string, string][]) : []),
-  ];
-  return (
-    <section className="flex flex-col gap-2">
-      {label && <h3 className="text-sm font-medium">{label}</h3>}
-      <dl className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
-        {details.map(([term, value]) => (
-          <div key={term} className="contents">
-            <dt className="text-muted-foreground">{term}</dt>
-            <dd className="wrap-break-word">{value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
   );
 }

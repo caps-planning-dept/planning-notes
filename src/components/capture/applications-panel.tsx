@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { Pencil } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import type { Capture } from "@/hooks/use-capture";
 import {
   formatRoundDate,
@@ -11,6 +13,7 @@ import {
   mergedDates,
   summarizeApplications,
 } from "@/lib/capture";
+import { ApplicantDialog } from "./applicant-dialog";
 
 const timeFormat = new Intl.DateTimeFormat("ko-KR", {
   month: "numeric",
@@ -50,6 +53,7 @@ function CountTable({ title, rows }: { title: string; rows: { label: string; cou
 
 export function ApplicationsPanel({ capture }: { capture: Capture }) {
   const { applications, round } = capture;
+  const [opened, setOpened] = useState<string | null>(null);
   const summary = useMemo(() => (round ? summarizeApplications(applications, round) : null), [applications, round]);
   const applicants = useMemo(
     () =>
@@ -78,6 +82,7 @@ export function ApplicationsPanel({ capture }: { capture: Capture }) {
     ...(legacy ? ["희망 활동"] : []),
     ...(showPrize ? ["이벤트 상품"] : []),
     "신청 시간",
+    "고치기",
   ];
 
   const stats = [
@@ -149,6 +154,12 @@ export function ApplicationsPanel({ capture }: { capture: Capture }) {
                     <td className={`${cell} whitespace-nowrap tabular-nums`}>
                       {timeFormat.format(new Date(latest.createdAt))}
                     </td>
+                    <td className={`${cell} py-1`}>
+                      <Button variant="ghost" size="sm" aria-label={`${applicant.name} 신청 고치기`} onClick={() => setOpened(applicant.studentId)}>
+                        <Pencil data-icon="inline-start" />
+                        고치기
+                      </Button>
+                    </td>
                   </tr>
                 );
               })}
@@ -159,9 +170,10 @@ export function ApplicationsPanel({ capture }: { capture: Capture }) {
           {legacy
             ? "중복 신청자의 날짜와 활동은 모든 신청을 합쳐 표시하고, 나머지는 최신 신청을 표시합니다."
             : "중복 신청자의 날짜는 모든 신청을 합쳐 표시하고, 나머지는 최신 신청을 표시합니다."}{" "}
-          신청별 내용은 조 편성의 상세 정보에서 확인할 수 있습니다.
+          신청별 내용은 고치기를 눌러 확인하고 고칠 수 있습니다.
         </p>
       </section>
+      <ApplicantDialog capture={capture} studentId={opened} onStudentChange={setOpened} />
     </div>
   );
 }

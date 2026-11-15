@@ -12,6 +12,7 @@ import {
   groupApplicants,
   numberTeams,
   removeTeamMember,
+  splitByAssignment,
   summarizeApplications,
   teamBoard,
   noticeSegments,
@@ -230,6 +231,33 @@ describe("조 배정 현황", () => {
     );
     expect(assigned.get("1")).toEqual(["2026-11-16", "2026-11-17"]);
     expect(assigned.size).toBe(1);
+  });
+});
+
+describe("배정된 사람 나누기", () => {
+  const people = groupApplicants([application("a"), application("b"), application("c")]);
+  const assigned = new Map([
+    ["a", ["2026-11-17"]],
+    ["b", ["2026-11-17", "2026-11-18"]],
+  ]);
+  const names = (items: { studentId: string }[]) => items.map((item) => item.studentId);
+
+  it("고른 날짜에 배정된 사람만 위로 나누고, 다른 날짜 배정은 아래에 둔다", () => {
+    const result = splitByAssignment(people, assigned, ["2026-11-18"]);
+    expect(names(result.assigned)).toEqual(["b"]);
+    expect(names(result.waiting)).toEqual(["a", "c"]);
+  });
+
+  it("날짜를 여러 개 고르면 하루라도 비어 있는 사람은 아래에 둔다", () => {
+    const result = splitByAssignment(people, assigned, ["2026-11-17", "2026-11-18"]);
+    expect(names(result.assigned)).toEqual(["b"]);
+    expect(names(result.waiting)).toEqual(["a", "c"]);
+  });
+
+  it("날짜를 고르지 않으면 나누지 않는다", () => {
+    const result = splitByAssignment(people, assigned, []);
+    expect(result.assigned).toEqual([]);
+    expect(names(result.waiting)).toEqual(["a", "b", "c"]);
   });
 });
 
