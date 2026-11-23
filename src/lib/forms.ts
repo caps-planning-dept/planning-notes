@@ -199,10 +199,3 @@ export function formStatus(settings: Pick<FormSettings, "isOpen" | "closesAt" | 
   if (settings.capacity !== null && count >= settings.capacity) return { open: false, reason: "정원 참" } as const;
   return { open: true, reason: "" } as const;
 }
-
-/** 카카오톡 같은 링크 미리보기에 쓸 공지 요약. 굵게 표시를 빼고 한 줄로 이어 붙여 줄인다. */
-export function noticeSummary(notice: string, maxLength = 120): string {
-  const text = notice.replaceAll("**", "").split("\n").map((line) => line.trim()).filter(Boolean).join(" ");
-  const chars = [...text];
-  return chars.length > maxLength ? `${chars.slice(0, maxLength - 1).join("")}…` : text;
-}

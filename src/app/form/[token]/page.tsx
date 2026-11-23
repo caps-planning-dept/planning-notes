@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cache } from "react";
 import { PublicForm } from "@/components/form/public-form";
-import { noticeSummary, readFormQuestions } from "@/lib/forms";
+import { readFormQuestions } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/server";
 
 type PublicFormData = {
@@ -20,12 +20,13 @@ const loadForm = cache(async (token: string) => {
   return { form: data as PublicFormData | null, error };
 });
 
-/** 카카오톡 등에 링크를 보내면 폼 제목과 공지 요약이 미리보기로 나오게 한다. */
+/** 카카오톡 등에 링크를 보내면 폼 제목이 미리보기로 나오게 한다. */
 export async function generateMetadata({ params }: PageProps<"/form/[token]">): Promise<Metadata> {
   const { token } = await params;
   const { form } = await loadForm(token);
   const title = form?.title || "신청";
-  const description = (form && noticeSummary(form.notice)) || "CAPS 기획부 신청 폼입니다.";
+  // 공지는 길어 미리보기가 어지러우므로 짧은 문구만 둔다.
+  const description = "CAPS 기획부 신청 폼";
   return {
     title,
     description,

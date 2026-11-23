@@ -6,7 +6,6 @@ import {
   countChoices,
   type FormQuestion,
   formStatus,
-  noticeSummary,
   moveQuestion,
   readFormAnswers,
   readFormQuestions,
@@ -137,15 +136,5 @@ describe("formStatus", () => {
     expect(formStatus({ isOpen: true, closesAt: "2026-11-30T00:00:00Z", capacity: null }, 0, now).reason).toBe("마감 시간 지남");
     expect(formStatus({ isOpen: true, closesAt: null, capacity: 40 }, 40, now).reason).toBe("정원 참");
     expect(formStatus({ isOpen: true, closesAt: null, capacity: 40 }, 39, now).open).toBe(true);
-  });
-});
-
-describe("noticeSummary", () => {
-  it("줄을 이어 붙이고 굵게 표시를 뺀다", () => {
-    expect(noticeSummary("📢 **공지**📢\n\n일시: 12월 16일\n  장소: 미정  ")).toBe("📢 공지📢 일시: 12월 16일 장소: 미정");
-  });
-
-  it("길면 줄임표로 자른다", () => {
-    expect(noticeSummary("가".repeat(10), 5)).toBe("가가가가…");
   });
 });
