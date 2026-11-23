@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { PublicForm } from "@/components/form/public-form";
-import { readFormQuestions } from "@/lib/forms";
+import { noticeSummary, readFormQuestions } from "@/lib/forms";
 import { createClient } from "@/lib/supabase/server";
-
-export const metadata: Metadata = {
-  title: "신청",
-  robots: { index: false, follow: false },
-  referrer: "no-referrer",
-};
 
 type PublicFormData = {
   title: string;
@@ -17,6 +12,28 @@ type PublicFormData = {
   isOpen: boolean;
   isFull: boolean;
 };
+
+// 미리보기 정보와 화면이 같은 요청에서 폼을 한 번만 읽게 한다.
+const loadForm = cache(async (token: string) => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("get_form", { token });
+  return { form: data as PublicFormData | null, error };
+});
+
+/** 카카오톡 등에 링크를 보내면 폼 제목과 공지 요약이 미리보기로 나오게 한다. */
+export async function generateMetadata({ params }: PageProps<"/form/[token]">): Promise<Metadata> {
+  const { token } = await params;
+  const { form } = await loadForm(token);
+  const title = form?.title || "신청";
+  const description = (form && noticeSummary(form.notice)) || "CAPS 기획부 신청 폼입니다.";
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: "website", siteName: "CAPS 기획부" },
+    robots: { index: false, follow: false },
+    referrer: "no-referrer",
+  };
+}
 
 function Notice({ title, body }: { title: string; body: string }) {
   return (
@@ -31,9 +48,7 @@ function Notice({ title, body }: { title: string; body: string }) {
 
 export default async function FormPage({ params }: PageProps<"/form/[token]">) {
   const { token } = await params;
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_form", { token });
-  const form = data as PublicFormData | null;
+  const { form, error } = await loadForm(token);
 
   if (error) return <Notice title="신청 폼을 불러오지 못했습니다" body="잠시 뒤 다시 시도해 주세요." />;
   if (!form) return <Notice title="신청 링크를 찾을 수 없습니다" body="기획부에 올바른 링크를 문의해 주세요." />;
