@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ClipboardList, FileText, Table2 } from "lucide-react";
+import { CalendarDays, ClipboardList, ClipboardPen, FileText, Table2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { NewTabInput } from "@/hooks/use-workspace";
 import { cn } from "@/lib/utils";
-import { DEFAULT_TAB_COLOR, type TabTemplate } from "@/lib/workspace";
+import { DEFAULT_TAB_COLOR, isPrivateTemplate, type TabTemplate } from "@/lib/workspace";
 import { ColorPicker } from "./color-picker";
 
 const TEMPLATES: { value: TabTemplate; label: string; hint: string; icon: typeof FileText }[] = [
@@ -23,6 +23,7 @@ const TEMPLATES: { value: TabTemplate; label: string; hint: string; icon: typeof
   { value: "calendar", label: "달력", hint: "날짜별 일정", icon: CalendarDays },
   { value: "timetable", label: "시간표", hint: "모두 비는 시간 찾기", icon: Table2 },
   { value: "capture", label: "캡처", hint: "신청과 조 편성", icon: ClipboardList },
+  { value: "form", label: "신청폼", hint: "행사 참가 신청 받기", icon: ClipboardPen },
 ];
 
 type NewTabDialogProps = {
@@ -47,8 +48,8 @@ export function NewTabDialog({ parentId, isAdmin, onClose, onCreate }: NewTabDia
 type NewTabFormProps = Omit<NewTabDialogProps, "parentId"> & { parentId: string | null };
 
 function NewTabForm({ parentId, isAdmin, onClose, onCreate }: NewTabFormProps) {
-  // 캡처 탭은 개인정보를 다루므로 관리자만 만든다.
-  const templates = TEMPLATES.filter((item) => item.value !== "capture" || isAdmin);
+  // 캡처와 신청폼 탭은 개인정보를 다루므로 관리자만 만든다.
+  const templates = TEMPLATES.filter((item) => !isPrivateTemplate(item.value) || isAdmin);
   const [title, setTitle] = useState("");
   const [template, setTemplate] = useState<TabTemplate>("note");
   const [color, setColor] = useState<string | null>(parentId ? null : "#1971c2");

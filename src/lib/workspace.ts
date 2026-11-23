@@ -1,4 +1,7 @@
-export type TabTemplate = "note" | "calendar" | "capture" | "timetable";
+export type TabTemplate = "note" | "calendar" | "capture" | "timetable" | "form";
+
+/** 신청자 개인정보가 있어 관리자만 만들고 언제나 "지정한 멤버만" 보는 탭 */
+export const isPrivateTemplate = (template: TabTemplate) => template === "capture" || template === "form";
 
 export type Tab = {
   id: string;
@@ -102,7 +105,7 @@ export function purgeSummary(tabs: Tab[], id: string): { descendants: number; ha
   const family = [id, ...descendantIds(tabs, id)];
   return {
     descendants: family.length - 1,
-    hasCapture: tabs.some((tab) => family.includes(tab.id) && tab.template === "capture"),
+    hasCapture: tabs.some((tab) => family.includes(tab.id) && isPrivateTemplate(tab.template)),
   };
 }
 

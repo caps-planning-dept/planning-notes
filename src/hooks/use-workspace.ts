@@ -7,6 +7,7 @@ import {
   moveTab,
   moveToTrash,
   removeWithDescendants,
+  isPrivateTemplate,
   restoreFromTrash,
   type Tab,
   type TabTemplate,
@@ -289,10 +290,10 @@ export function useWorkspace(workspaceId: string, userId: string) {
     syncError,
     createTab(input: NewTabInput) {
       const id = crypto.randomUUID();
-      const viewersOnly = input.template === "capture";
+      const viewersOnly = isPrivateTemplate(input.template);
       setTabs((current) => [...current, { ...input, id, deletedAt: null, createdAt: Date.now(), pinnedAt: null, viewersOnly }]);
       // DB도 새 탭을 만든 사람을 열람자로 넣는다. 캡처 탭이 아니면 설정 가능자로 넣는다.
-      setTabViewers((current) => [...current, { tabId: id, userId, canManage: !viewersOnly }]);
+      setTabViewers((current) => [...current, { tabId: id, userId, canManage: input.template !== "capture" }]);
       supabase
         .from("tabs")
         .insert({

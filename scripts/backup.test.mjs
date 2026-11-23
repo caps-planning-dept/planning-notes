@@ -34,9 +34,10 @@ describe("expiredFolders", () => {
 });
 
 describe("백업 대상", () => {
-  it("캡처 표와 초대 표를 포함하지 않는다", () => {
+  it("캡처 표, 신청폼 표, 초대 표를 포함하지 않는다", () => {
     const tables = BACKUP_TABLES.map((source) => source.table);
-    expect(tables.filter((table) => table.startsWith("capture") || table === "invitations")).toEqual([]);
+    const personal = (table) => table.startsWith("capture") || table.startsWith("form_") || table === "invitations";
+    expect(tables.filter(personal)).toEqual([]);
   });
 
   it("이메일 칸을 읽지 않는다", () => {

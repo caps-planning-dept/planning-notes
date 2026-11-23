@@ -1,10 +1,11 @@
-import { CalendarDays, ClipboardList, FileText, type LucideProps, Table2 } from "lucide-react";
+import { CalendarDays, ClipboardList, ClipboardPen, FileText, type LucideProps, Table2 } from "lucide-react";
 import type { TabTemplate } from "@/lib/workspace";
 
 export function TabIcon({ template, ...props }: LucideProps & { template: TabTemplate }) {
   if (template === "calendar") return <CalendarDays {...props} />;
   if (template === "capture") return <ClipboardList {...props} />;
   if (template === "timetable") return <Table2 {...props} />;
+  if (template === "form") return <ClipboardPen {...props} />;
   return <FileText {...props} />;
 }
 
@@ -13,4 +14,5 @@ export const TEMPLATE_LABELS: Record<TabTemplate, string> = {
   calendar: "달력",
   capture: "캡처",
   timetable: "시간표",
+  form: "신청폼",
 };

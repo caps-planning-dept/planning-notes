@@ -18,7 +18,7 @@ import {
   restrictedAncestor,
 } from "@/lib/tab-access";
 import { cn } from "@/lib/utils";
-import type { Tab } from "@/lib/workspace";
+import { isPrivateTemplate, type Tab } from "@/lib/workspace";
 
 type ViewersDialogProps = {
   tab: Tab;
@@ -143,7 +143,9 @@ function ViewersForm({ tab, workspace, userId, onClose }: Omit<ViewersDialogProp
 
   const description = isCapture
     ? "캡처 탭은 신청자 학번이 있어 체크한 사람만 봅니다. 관리자도 체크해야 봅니다. 열람자는 관리자만 바꿀 수 있습니다."
-    : manageable
+    : tab.template === "form"
+      ? "신청폼 탭은 신청자 개인정보가 있어 체크한 사람만 봅니다. 관리자도 체크해야 봅니다. 열람자는 관리자와 설정 가능한 멤버가 바꿉니다."
+      : manageable
       ? "바꾸면 바로 저장됩니다. 지정한 멤버만 볼 때는 관리자도 체크해야 봅니다."
       : "열람자는 관리자와 설정 가능한 멤버가 바꿀 수 있습니다.";
 
@@ -157,7 +159,7 @@ function ViewersForm({ tab, workspace, userId, onClose }: Omit<ViewersDialogProp
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
 
-      {!isCapture && (
+      {!isPrivateTemplate(tab.template) && (
         <fieldset className="flex flex-col gap-1" disabled={!manageable || busy}>
           <legend className="mb-2 text-sm font-medium">볼 수 있는 사람</legend>
           {[

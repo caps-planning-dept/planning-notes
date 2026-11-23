@@ -3,6 +3,7 @@
 import { FolderInput, Lock, Palette, Trash2, Users } from "lucide-react";
 import { type CSSProperties, useState } from "react";
 import { CaptureView } from "@/components/capture/capture-view";
+import { FormView } from "@/components/form/form-view";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -118,6 +119,7 @@ export function TabPage({ tab, workspace, userId, isAdmin, onNewTab }: TabPagePr
       {tab.template === "capture" && (
         <CaptureView tabId={tab.id} title={tab.title} isAdmin={isAdmin} />
       )}
+      {tab.template === "form" && <FormView tabId={tab.id} title={tab.title} isAdmin={isAdmin} />}
 
       <MoveTabDialog tab={tab} workspace={workspace} open={moveOpen} onClose={() => setMoveOpen(false)} />
       <ViewersDialog

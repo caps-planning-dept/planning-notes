@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 };
 
 const CONTACT_EMAIL = "pyc060210@gmail.com";
-const EFFECTIVE_DATE = "2026년 11월 6일";
+const EFFECTIVE_DATE = "2026년 11월 23일";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         <header className="flex flex-col gap-2">
           <h1 className="font-display text-3xl">개인정보처리방침</h1>
           <p>
-            코딩 동아리 CAPS 기획부는 회의록과 일정 관리 앱(이하 앱), 캡처 신청 폼을 운영하며 아래와 같이 개인정보를
+            코딩 동아리 CAPS 기획부는 회의록과 일정 관리 앱(이하 앱), 캡처·행사 신청 폼을 운영하며 아래와 같이 개인정보를
             처리합니다.
           </p>
         </header>
@@ -57,6 +57,13 @@ export default function PrivacyPage() {
                   </td>
                   <td className="py-2">캡처 조 편성과 안내, 이벤트 경품 전달</td>
                 </tr>
+                <tr className="border-t">
+                  <td className="py-2 pr-4 whitespace-nowrap">행사 신청자</td>
+                  <td className="py-2 pr-4">
+                    행사마다 신청 폼에서 묻는 항목(예: 이름, 학번, 전공, 기수, 뒤풀이 참여 여부)과 신청 시간
+                  </td>
+                  <td className="py-2">행사 참가 인원 확인과 안내</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -64,19 +71,19 @@ export default function PrivacyPage() {
 
         <Section title="보관 기간">
           <ul className="list-disc pl-5">
-            <li>캡처 신청 정보는 해당 회차 종료 후 1년 이내에 삭제합니다.</li>
+            <li>캡처 신청 정보는 해당 회차 종료 후, 행사 신청 정보는 해당 행사 종료 후 1년 이내에 삭제합니다.</li>
             <li>삭제한 탭은 복구를 위해 휴지통에 30일간 보관한 뒤 삭제합니다.</li>
             <li>멤버 정보는 멤버로 활동하는 동안 보관하며, 요청하면 지체 없이 삭제합니다.</li>
             <li>
               복구를 위해 탭, 회의록, 일정, 답글, 문의, 멤버의 표시 이름을 비공개 저장소에 매일 백업하고 30일간
-              보관합니다. 캡처 신청 정보와 이메일은 백업하지 않습니다.
+              보관합니다. 캡처·행사 신청 정보와 이메일은 백업하지 않습니다.
             </li>
           </ul>
         </Section>
 
         <Section title="열람 범위">
           <p>
-            캡처 신청 정보는 관리자와 지정된 기획부 담당자만 볼 수 있습니다. 조 편성표를 공유할 때는 이름, 날짜, 활동,
+            캡처·행사 신청 정보는 관리자와 지정된 기획부 담당자만 볼 수 있습니다. 조 편성표를 공유할 때는 이름, 날짜, 활동,
             조, 메모만 포함합니다.
           </p>
         </Section>
